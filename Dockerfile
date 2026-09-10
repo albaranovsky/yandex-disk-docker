@@ -1,13 +1,11 @@
 # syntax=docker/dockerfile:1
-ARG APP_PLATFORM=linux/amd64
-
 # --- Stage 1: Download package ---
 FROM curlimages/curl:8.22.0 AS downloader
 ARG YADISK_DEB_URL=https://repo.yandex.ru/yandex-disk/yandex-disk_latest_amd64.deb
 RUN curl -fsSL "${YADISK_DEB_URL}" -o /tmp/yandex-disk.deb
 
 # --- Stage 2: Runtime image ---
-FROM --platform=$APP_PLATFORM debian:bookworm-slim
+FROM debian:bookworm-slim
 LABEL org.opencontainers.image.title="yandex-disk-docker" \
       org.opencontainers.image.description="Lightweight and secure Yandex.Disk CLI client in Docker" \
       org.opencontainers.image.authors="Aleksey Baranovsky" \
@@ -20,6 +18,7 @@ ENV PUID="" \
     EXCLUDE="" \
     PROXY=""
 
+# hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=bind,from=downloader,source=/tmp/yandex-disk.deb,target=/tmp/yandex-disk.deb \
