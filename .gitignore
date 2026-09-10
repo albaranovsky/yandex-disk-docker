@@ -1,2 +1,10 @@
 .idea/
-settings.md
+
+# Sync & persistent data
+var/
+data/
+
+# OS and temporary files
+.DS_Store
+Thumbs.db
+*.log

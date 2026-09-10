@@ -1,0 +1,23 @@
+services:
+  yandex-disk:
+    build: .
+    image: yandex-disk:latest
+    # Or use pre-built image from GHCR:
+    # image: ghcr.io/albaranovsky/yandex-disk-docker:latest
+    platform: linux/amd64
+    container_name: yandex-disk
+    restart: unless-stopped
+    stop_grace_period: 30s # Time for clean database commit and lock release
+    environment:
+      - EXCLUDE= # Comma-separated list of folders to exclude (e.g. temp,cache)
+      # - PROXY=http://user:pass@host:port # or socks5://host:port
+      # PUID and PGID are auto-detected from the mounted folder on the host.
+      # Specify explicitly only if you need to override:
+      # - PUID=1000
+      # - PGID=1000
+    volumes:
+      # Option 1: Unified storage (config and disk subfolders are created automatically)
+      - ./data:/data
+      # Option 2: Split storage (uncomment if needed)
+      # - ./config:/data/config
+      # - ./disk:/data/disk

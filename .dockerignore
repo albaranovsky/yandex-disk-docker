@@ -1,5 +1,7 @@
-/.git
-/.idea
-.gitignore
-LICENSE
-*.md
+# Ignore everything by default
+**
+
+# Allow only files needed for the Docker build
+!Dockerfile
+!entrypoint.sh
+!yadisk

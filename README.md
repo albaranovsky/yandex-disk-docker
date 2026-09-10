@@ -1,2 +1,259 @@
 # yandex-disk-docker
-Docker image for Yandex.Disk
+
+[![CI & Build](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docker Image](https://img.shields.io/badge/GHCR-image-blue?logo=docker)](https://github.com/albaranovsky/yandex-disk-docker/pkgs/container/yandex-disk-docker)
+
+Docker image for the **Yandex.Disk** command-line client (`yandex-disk`).
+
+Runs Yandex.Disk background synchronization inside a lightweight Debian Bookworm Slim container, keeping your files and configuration on the host with correct user permissions.
+
+---
+
+## Features
+
+- **Automatic Setup Wizard**: Launches setup wizard automatically on interactive first run (`docker run -it`).
+- **Automatic UID/GID Detection (PUID/PGID)**: Dynamically detects the owner of the mounted host folder and runs the daemon via `gosu`. No file permission conflicts on the host.
+- **Unified Volume Mount `/data`**: Mount a single host folder (subdirectories `config` and `disk` are created automatically). Split mounting (`/data/config` and `/data/disk`) is also supported.
+- **Convenient CLI Utility (`yadisk`)**: Built-in CLI wrapper with commands `status`, `sync`, `stop`, `token`, and `setup` without typing complex flags or config paths.
+- **Crash Loop Protection**: When started unconfigured in background mode, the container waits instead of looping crashes, displaying clear setup instructions.
+- **Graceful Shutdown**: Configured with stop grace periods to ensure clean SQLite index commits without data corruption.
+- **Apple Silicon Compatibility (macOS M1/M2/M3/M4)**: Built for `--platform=linux/amd64` and runs seamlessly under emulation.
+- **Healthcheck**: Periodically monitors daemon health via `yadisk status`.
+- **Proxy Support**: Full support for HTTP and SOCKS5 proxies via the `PROXY` environment variable.
+
+---
+
+## Volume Structure
+
+* **Option 1 (Recommended, unified storage):**
+  - `/data` — Root storage directory (automatically contains `/data/config` and `/data/disk`).
+    ```bash
+    -v "$(pwd)/data":/data
+    ```
+* **Option 2 (Separate volumes for config and disk):**
+  - `/data/config` — Configuration and authentication token.
+  - `/data/disk` — Synchronized files directory.
+    ```bash
+    -v "$(pwd)/config":/data/config -v "$(pwd)/disk":/data/disk
+    ```
+
+---
+
+## Quick Start
+
+### 1. Obtain the Image
+
+**Option A: Pre-built image from GitHub Packages (fastest):**
+```bash
+docker pull ghcr.io/albaranovsky/yandex-disk-docker:latest
+```
+
+**Option B: Build locally from source:**
+```bash
+docker build -t yandex-disk:latest .
+```
+
+---
+
+### 2. First-Time Setup & Authentication
+
+Thanks to interactive TTY auto-detection, the setup wizard starts **automatically** when run interactively:
+
+```bash
+# Option A: Using Makefile (fastest)
+make setup
+
+# Option B: Using docker run directly
+docker run -it --rm -v "$(pwd)/data":/data ghcr.io/albaranovsky/yandex-disk-docker:latest
+```
+
+The wizard will prompt:
+1. **Use proxy server?** (Usually `N`, or configure if needed).
+2. **Open link in browser** (e.g., `https://ya.ru/device`), authorize access, and enter the code into the terminal.
+3. **Path to Yandex.Disk folder**: Press Enter to use default (`/home/yadisk/Yandex.Disk`, automatically linked to `/data/disk`).
+4. **Start daemon on system boot?** Choose `n` (Docker manages container lifecycle).
+
+Token and configuration will be saved to `./data/config`.
+
+---
+
+### 3. Start the Synchronization Daemon
+
+#### Option A: Using Docker Compose (Recommended)
+
+Use the provided [docker-compose.yml](file:///Users/baranovsky/dev/personal/yandex-disk-docker/docker-compose.yml):
+
+```yaml
+services:
+  yandex-disk:
+    build: .
+    image: yandex-disk:latest
+    # Or use the pre-built image from GHCR:
+    # image: ghcr.io/albaranovsky/yandex-disk-docker:latest
+    platform: linux/amd64
+    container_name: yandex-disk
+    restart: unless-stopped
+    stop_grace_period: 30s # Time for clean database commit and lock release
+    environment:
+      - EXCLUDE= # Comma-separated list of folders to exclude (e.g. temp,cache)
+      # - PROXY=http://user:pass@host:port # or socks5://host:port
+    volumes:
+      # Option 1: Unified storage (config and disk subfolders are created automatically)
+      - ./data:/data
+      # Option 2: Split storage (uncomment if needed)
+      # - ./config:/data/config
+      # - ./disk:/data/disk
+```
+
+Start service:
+```bash
+docker compose up -d
+```
+
+View logs:
+```bash
+docker compose logs -f
+```
+
+---
+
+#### Option B: Using `docker run`
+
+With automatic UID/GID detection and unified volume mounting, the command is simple:
+
+```bash
+docker run -d \
+  --name yandex-disk \
+  --restart unless-stopped \
+  --stop-timeout 30 \
+  -v "$(pwd)/data":/data \
+  ghcr.io/albaranovsky/yandex-disk-docker:latest
+```
+
+With directory exclusions and proxy:
+```bash
+docker run -d \
+  --name yandex-disk \
+  --restart unless-stopped \
+  --stop-timeout 30 \
+  -e EXCLUDE="tmp,Trash,Cache" \
+  -e PROXY="http://proxy.example.com:3128" \
+  -v "$(pwd)/data":/data \
+  ghcr.io/albaranovsky/yandex-disk-docker:latest
+```
+
+---
+
+## Makefile Shortcuts
+
+A [Makefile](file:///Users/baranovsky/dev/personal/yandex-disk-docker/Makefile) is included for convenient everyday management:
+
+| Command | Action |
+| :--- | :--- |
+| `make build` | Build Docker image |
+| `make pull` | Pull latest image from registry |
+| `make setup` | Run interactive authentication wizard |
+| `make token` | Obtain OAuth authentication token directly |
+| `make up` | Start daemon in background |
+| `make down` | Gracefully stop the daemon |
+| `make restart` | Restart the daemon |
+| `make status` | Check synchronization status |
+| `make sync` | Trigger manual synchronization |
+| `make test` | Run automated integration test suite |
+| `make logs` | Stream logs in real time |
+| `make shell` | Open bash shell inside container |
+
+---
+
+## Useful Commands
+
+To execute commands inside a running container, use the built-in `yadisk` CLI utility. It automatically passes configuration paths and drops privileges to the non-root user:
+
+Check synchronization status:
+```bash
+docker exec yandex-disk yadisk status
+# or via Makefile:
+make status
+```
+
+View last synchronized files:
+```bash
+docker exec yandex-disk yadisk status --last
+```
+
+Trigger manual synchronization:
+```bash
+docker exec yandex-disk yadisk sync
+# or via Makefile:
+make sync
+```
+
+Obtain OAuth authentication token directly:
+```bash
+docker exec -it yandex-disk yadisk token
+# or via Makefile:
+make token
+```
+
+Show CLI help:
+```bash
+docker exec yandex-disk yadisk help
+```
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `EXCLUDE` | `""` | Comma-separated list of directories to exclude (e.g. `tmp,backup`) |
+| `PROXY` | `""` | Proxy server settings (`http://...`, `socks5://...`, or format `TYPE,SERVER,PORT[,LOGIN,PASSWORD]`) |
+| `PUID` | *(auto-detected)* | Host user UID (detected from volume owner; override only if needed) |
+| `PGID` | *(auto-detected)* | Host user GID (detected from volume owner; override only if needed) |
+
+---
+
+## Advanced Settings
+
+### Read-Only Rootfs Mode
+
+For hardened environments where containers cannot modify their own root filesystem, run with `read_only: true`:
+
+```yaml
+services:
+  yandex-disk:
+    image: ghcr.io/albaranovsky/yandex-disk-docker:latest
+    container_name: yandex-disk
+    restart: unless-stopped
+    stop_grace_period: 30s
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+    volumes:
+      - ./data:/data
+```
+
+---
+
+## Testing
+
+The project includes an automated integration test suite ([tests/test.sh](file:///Users/baranovsky/dev/personal/yandex-disk-docker/tests/test.sh)) that validates:
+- CLI help command execution
+- Non-root user permissions (`yadisk:1000`)
+- Custom UID/GID mapping (`PUID`/`PGID`)
+- Read-Only Rootfs compatibility (`--read-only --tmpfs /tmp --tmpfs /run`)
+- Symlink integrity (`/home/yadisk/.config/yandex-disk`, `/home/yadisk/Yandex.Disk`, etc.)
+- Dynamic storage folder creation on mounted volume
+- Graceful shutdown on `SIGTERM` and crash loop prevention
+
+Run the test suite locally:
+```bash
+make test
+```
+
+Or test a specific image directly:
+```bash
+./tests/test.sh ghcr.io/albaranovsky/yandex-disk-docker:latest
+```
