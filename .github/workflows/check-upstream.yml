@@ -1,0 +1,81 @@
+name: Check Upstream Release
+
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Runs every Monday at 08:00 UTC
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-upstream:
+    name: Check Yandex.Disk Upstream
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Check for new upstream package
+        id: check
+        run: |
+          RAW_INFO=$(curl -sSL https://repo.yandex.ru/yandex-disk/deb/dists/stable/main/binary-amd64/Packages.gz | gzip -d)
+          UPSTREAM_VERSION=$(echo "$RAW_INFO" | awk -F': ' '$1 == "Version" {print $2}')
+          UPSTREAM_SHA256=$(echo "$RAW_INFO" | awk -F': ' '$1 == "SHA256" {print $2}')
+          UPSTREAM_ETAG=$(curl -sI https://repo.yandex.ru/yandex-disk/yandex-disk_latest_amd64.deb | grep -i '^etag:' | tr -d '\r"' | awk '{print $2}')
+
+          if [ -z "$UPSTREAM_VERSION" ]; then
+            echo "::error::Failed to fetch upstream metadata from Yandex repository"
+            exit 1
+          fi
+
+          echo "Latest upstream version: $UPSTREAM_VERSION"
+          echo "Latest upstream SHA256:  $UPSTREAM_SHA256"
+
+          CURRENT_VERSION=""
+          if [ -f .upstream.json ]; then
+            CURRENT_VERSION=$(jq -r '.version // empty' .upstream.json 2>/dev/null || true)
+          fi
+
+          echo "Currently tracked version: $CURRENT_VERSION"
+
+          if [ "$UPSTREAM_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "New upstream version detected: $CURRENT_VERSION -> $UPSTREAM_VERSION"
+
+            # Update .upstream.json
+            printf '{\n  "package": "yandex-disk",\n  "version": "%s",\n  "sha256": "%s",\n  "etag": "%s"\n}\n' \
+              "$UPSTREAM_VERSION" "$UPSTREAM_SHA256" "$UPSTREAM_ETAG" > .upstream.json
+
+            # Update Dockerfile ARG YADISK_VERSION
+            sed -i "s/^ARG YADISK_VERSION=.*/ARG YADISK_VERSION=$UPSTREAM_VERSION/" Dockerfile
+
+            echo "has_update=true" >> "$GITHUB_OUTPUT"
+            echo "old_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+            echo "new_version=$UPSTREAM_VERSION" >> "$GITHUB_OUTPUT"
+            echo "new_sha256=$UPSTREAM_SHA256" >> "$GITHUB_OUTPUT"
+          else
+            echo "Repository is up to date with upstream."
+            echo "has_update=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request
+        if: steps.check.outputs.has_update == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: "chore(deps): bump yandex-disk from ${{ steps.check.outputs.old_version }} to ${{ steps.check.outputs.new_version }}"
+          title: "chore(deps): bump yandex-disk to ${{ steps.check.outputs.new_version }}"
+          body: |
+            A new upstream release of the **Yandex.Disk** CLI client was detected!
+
+            - **New Version**: `${{ steps.check.outputs.new_version }}`
+            - **Previous Version**: `${{ steps.check.outputs.old_version }}`
+            - **Package SHA256**: `${{ steps.check.outputs.new_sha256 }}`
+            - **Upstream Repository**: `https://repo.yandex.ru/yandex-disk/`
+
+            The automated test suite will automatically run on this PR to ensure compatibility.
+          branch: "update-yandex-disk-${{ steps.check.outputs.new_version }}"
+          delete-branch: true
+          labels: |
+            dependencies
+            upstream
