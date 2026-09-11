@@ -16,6 +16,7 @@ TOTAL=0
 TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'yadisk-test')
 TEST_CONTAINER=""
 
+# shellcheck disable=SC2329
 cleanup() {
     if [ -n "$TEST_CONTAINER" ]; then
         docker rm -f "$TEST_CONTAINER" >/dev/null 2>&1 || true
