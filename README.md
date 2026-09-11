@@ -85,6 +85,15 @@ The wizard will prompt:
 
 Token and configuration will be saved to `./data/config`.
 
+> [!TIP] **Security Tip (Protect OAuth Token):** The `./data/config` directory contains your persistent OAuth
+> authentication token (`config.cfg`). On shared or multi-user Linux hosts, restrict access to your user only:
+>
+> ```bash
+> chmod 700 data/config
+> # or restrict the entire data directory:
+> chmod 700 data
+> ```
+
 ---
 
 ### 3. Start the Synchronization Daemon
@@ -141,8 +150,7 @@ docker run -d \
 
 ## Makefile Shortcuts
 
-A [Makefile](Makefile) is included for convenient everyday
-management:
+A [Makefile](Makefile) is included for convenient everyday management:
 
 | Category            | Command        | Action                                     |
 | :------------------ | :------------- | :----------------------------------------- |
@@ -260,8 +268,7 @@ docker run -d \
 
 ## Testing
 
-The project includes an automated integration test suite
-([tests/test.sh](tests/test.sh)) that validates:
+The project includes an automated integration test suite ([tests/test.sh](tests/test.sh)) that validates:
 
 - CLI help command execution
 - Non-root user permissions (`yadisk:1000`)
