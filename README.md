@@ -141,7 +141,7 @@ docker run -d \
 
 ## Makefile Shortcuts
 
-A [Makefile](file:///Users/baranovsky/dev/personal/yandex-disk-docker/Makefile) is included for convenient everyday
+A [Makefile](Makefile) is included for convenient everyday
 management:
 
 | Category            | Command        | Action                                     |
@@ -261,7 +261,7 @@ docker run -d \
 ## Testing
 
 The project includes an automated integration test suite
-([tests/test.sh](file:///Users/baranovsky/dev/personal/yandex-disk-docker/tests/test.sh)) that validates:
+([tests/test.sh](tests/test.sh)) that validates:
 
 - CLI help command execution
 - Non-root user permissions (`yadisk:1000`)
