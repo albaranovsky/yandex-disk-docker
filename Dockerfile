@@ -40,7 +40,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 COPY --chmod=755 entrypoint.sh yadisk /usr/local/bin/
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD yadisk status || exit 1
+    CMD ["yadisk", "status"]
 
 ENTRYPOINT ["tini", "-g", "--", "entrypoint.sh"]
 CMD ["start"]
