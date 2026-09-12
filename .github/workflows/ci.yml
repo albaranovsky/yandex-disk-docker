@@ -129,3 +129,4 @@ jobs:
           repository: ${{ env.IMAGE_NAME }}
           short-description: "Lightweight and secure Yandex.Disk CLI client in Docker with automated sync and non-root user"
           readme-filepath: ./README.md
+          enable-url-completion: true
