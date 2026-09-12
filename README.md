@@ -1,9 +1,10 @@
 # yandex-disk-docker
 
 [![CI & Build](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docker Pulls](https://img.shields.io/docker/pulls/albaranovsky/yandex-disk-docker?logo=docker)](https://hub.docker.com/r/albaranovsky/yandex-disk-docker)
 [![Docker Image](https://img.shields.io/badge/GHCR-image-blue?logo=docker)](https://github.com/albaranovsky/yandex-disk-docker/pkgs/container/yandex-disk-docker)
 [![Attestation](https://img.shields.io/badge/Attestation-Verified-success?logo=github)](https://github.com/albaranovsky/yandex-disk-docker/attestations)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Docker image for the **Yandex.Disk** command-line client (`yandex-disk`).
 
@@ -50,9 +51,13 @@ configuration on the host with correct user permissions.
 
 ### 1. Obtain the Image
 
-**Option A: Pre-built image from GitHub Packages (fastest):**
+**Option A: Pre-built image from Docker Hub or GHCR (fastest):**
 
 ```bash
+# From Docker Hub:
+docker pull albaranovsky/yandex-disk-docker:latest
+
+# Or from GitHub Container Registry (GHCR):
 docker pull ghcr.io/albaranovsky/yandex-disk-docker:latest
 ```
 
