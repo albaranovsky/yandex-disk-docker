@@ -1,0 +1,138 @@
+# Yandex.Disk CLI client in Docker
+
+[![Docker Image Version](https://img.shields.io/github/v/release/albaranovsky/yandex-disk-docker?logo=github&label=version)](https://github.com/albaranovsky/yandex-disk-docker/releases)
+[![Yandex.Disk CLI](https://img.shields.io/badge/yandex--disk-0.1.6.1080-blue?logo=yandex)](https://repo.yandex.ru/yandex-disk/)
+[![Docker Image Size](https://img.shields.io/docker/image-size/albaranovsky/yandex-disk-docker/latest?logo=docker)](https://hub.docker.com/r/albaranovsky/yandex-disk-docker)
+[![Architecture](https://img.shields.io/badge/arch-amd64-blue)](https://hub.docker.com/r/albaranovsky/yandex-disk-docker)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![GitHub Source](https://img.shields.io/badge/GitHub-Repository-black?logo=github)](https://github.com/albaranovsky/yandex-disk-docker)
+
+Lightweight and secure Docker image for the official **Yandex.Disk CLI** (`yandex-disk` v`0.1.6.1080`) client.  
+Runs background synchronization inside an isolated Debian container, preserving correct host file ownership and
+supporting read-only filesystems. Upstream packages are automatically tracked and verified with SHA256 checksums.
+
+---
+
+## Supported Tags
+
+- [`latest`, `2.0.3`, `2.0`](Dockerfile) — Yandex.Disk CLI **v0.1.6.1080** on Debian Bookworm Slim
+
+---
+
+## Features
+
+- **Non-Root by Default**: Runs daemon under dedicated `yadisk:1000` user.
+- **Automatic PUID/PGID Detection**: Dynamically matches file permissions of your host directory.
+- **Built-in CLI Utility (`yadisk`)**: Easy-to-use commands (`yadisk status`, `yadisk sync`, `yadisk token`).
+- **Hardened Security**: Full support for Read-Only Rootfs (`--read-only`) and `--security-opt=no-new-privileges:true`.
+- **Graceful Shutdown**: 30-second stop timeout ensures clean SQLite database sync without corruption.
+- **Supply Chain Security**: Built with cryptographic SLSA Provenance and SBOM attestation.
+
+---
+
+## Quick Start
+
+### 1. First-Time Setup (OAuth Authorization)
+
+Run interactive setup wizard to link your Yandex account:
+
+```bash
+docker run -it --rm -v "$(pwd)/data":/data albaranovsky/yandex-disk-docker:latest
+```
+
+Follow terminal instructions:
+
+1. Open the verification link (e.g. `https://ya.ru/device`) in your browser.
+2. Enter the displayed code to authorize access.
+3. Accept default folder path (`/home/yadisk/Yandex.Disk`).
+4. Select `n` for auto-start daemon (Docker manages container lifecycle).
+
+> 💡 **Security Tip (Protect OAuth Token):**  
+> Authorization token and config are saved in `./data/config`. On shared Linux hosts, restrict access:
+>
+> ```bash
+> chmod 700 data
+> ```
+
+---
+
+### 2. Start Synchronization
+
+#### Using Docker Compose (Recommended)
+
+A pre-configured [docker-compose.yml](docker-compose.yml) is included in the repository.
+
+```yaml
+services:
+  yandex-disk:
+    image: albaranovsky/yandex-disk-docker:latest
+    container_name: yandex-disk
+    restart: unless-stopped
+    stop_grace_period: 30s
+    volumes:
+      - ./data:/data
+```
+
+Start the service:
+
+```bash
+docker compose up -d
+```
+
+View logs:
+
+```bash
+docker compose logs -f
+```
+
+#### Using `docker run`
+
+```bash
+docker run -d \
+  --name yandex-disk \
+  --restart unless-stopped \
+  --stop-timeout 30 \
+  -v "$(pwd)/data":/data \
+  albaranovsky/yandex-disk-docker:latest
+```
+
+---
+
+## Management via CLI (`yadisk`)
+
+Check synchronization status:
+
+```bash
+docker exec yandex-disk yadisk status
+```
+
+Trigger manual sync:
+
+```bash
+docker exec yandex-disk yadisk sync
+```
+
+View last synchronized files:
+
+```bash
+docker exec yandex-disk yadisk status --last
+```
+
+---
+
+## Environment Variables
+
+| Variable  | Default           | Description                                                      |
+| :-------- | :---------------- | :--------------------------------------------------------------- |
+| `EXCLUDE` | `""`              | Comma-separated directories to exclude (e.g. `temp,cache,Trash`) |
+| `PROXY`   | `""`              | Proxy server (`http://...`, `socks5://...`)                      |
+| `PUID`    | _(auto-detected)_ | Override user UID for host directory permissions                 |
+| `PGID`    | _(auto-detected)_ | Override user GID for host directory permissions                 |
+
+---
+
+## Links
+
+- [GitHub Repository & Source Code](https://github.com/albaranovsky/yandex-disk-docker)
+- [Report an Issue / Bug Tracker](https://github.com/albaranovsky/yandex-disk-docker/issues)
+- [Release Notes & Changelog](https://github.com/albaranovsky/yandex-disk-docker/releases)

@@ -50,6 +50,11 @@ jobs:
             # Update Dockerfile ARG YADISK_VERSION
             sed -i "s/^ARG YADISK_VERSION=.*/ARG YADISK_VERSION=$UPSTREAM_VERSION/" Dockerfile
 
+            # Update version references in documentation
+            if [ -n "$CURRENT_VERSION" ]; then
+              sed -i "s/$CURRENT_VERSION/$UPSTREAM_VERSION/g" README.md DOCKERHUB.md
+            fi
+
             echo "has_update=true" >> "$GITHUB_OUTPUT"
             echo "old_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
             echo "new_version=$UPSTREAM_VERSION" >> "$GITHUB_OUTPUT"
