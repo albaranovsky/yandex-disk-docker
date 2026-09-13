@@ -17,6 +17,7 @@ against the official Yandex repository.
 
 ## Features
 
+- **Non-Root by Default**: Runs daemon under dedicated `yadisk:1000` user.
 - **Automatic Setup Wizard**: Launches setup wizard automatically on interactive first run (`docker run -it`).
 - **Automatic UID/GID Detection (PUID/PGID)**: Dynamically detects the owner of the mounted host folder and runs the
   daemon via `gosu`. No file permission conflicts on the host.
@@ -26,10 +27,11 @@ against the official Yandex repository.
   `setup` without typing complex flags or config paths.
 - **Crash Loop Protection**: When started unconfigured in background mode, the container waits instead of looping
   crashes, displaying clear setup instructions.
-- **Graceful Shutdown**: Configured with stop grace periods to ensure clean SQLite index commits without data
+- **Graceful Shutdown**: Configured with 30-second stop timeout to ensure clean SQLite index commits without data
   corruption.
+- **Hardened Security**: Full support for Read-Only Rootfs (`--read-only`) and `--security-opt=no-new-privileges:true`.
 - **Healthcheck**: Periodically monitors daemon health via `yadisk status`.
-- **Proxy Support**: Full support for HTTP and SOCKS5 proxies via the `PROXY` environment variable.
+- **Supply Chain Security**: Built with cryptographic SLSA Provenance and SBOM attestation.
 
 ---
 

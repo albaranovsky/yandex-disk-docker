@@ -22,10 +22,19 @@ supporting read-only filesystems. Upstream packages are automatically tracked an
 ## Features
 
 - **Non-Root by Default**: Runs daemon under dedicated `yadisk:1000` user.
-- **Automatic PUID/PGID Detection**: Dynamically matches file permissions of your host directory.
-- **Built-in CLI Utility (`yadisk`)**: Easy-to-use commands (`yadisk status`, `yadisk sync`, `yadisk token`).
+- **Automatic Setup Wizard**: Launches setup wizard automatically on interactive first run (`docker run -it`).
+- **Automatic UID/GID Detection (PUID/PGID)**: Dynamically detects the owner of the mounted host folder and runs the
+  daemon via `gosu`. No file permission conflicts on the host.
+- **Unified Volume Mount `/data`**: Mount a single host folder (subdirectories `config` and `disk` are created
+  automatically). Split mounting (`/data/config` and `/data/disk`) is also supported.
+- **Convenient CLI Utility (`yadisk`)**: Built-in CLI wrapper with commands `status`, `sync`, `stop`, `token`, and
+  `setup` without typing complex flags or config paths.
+- **Crash Loop Protection**: When started unconfigured in background mode, the container waits instead of looping
+  crashes, displaying clear setup instructions.
+- **Graceful Shutdown**: Configured with 30-second stop timeout to ensure clean SQLite index commits without data
+  corruption.
 - **Hardened Security**: Full support for Read-Only Rootfs (`--read-only`) and `--security-opt=no-new-privileges:true`.
-- **Graceful Shutdown**: 30-second stop timeout ensures clean SQLite database sync without corruption.
+- **Healthcheck**: Periodically monitors daemon health via `yadisk status`.
 - **Supply Chain Security**: Built with cryptographic SLSA Provenance and SBOM attestation.
 
 ---
@@ -122,12 +131,12 @@ docker exec yandex-disk yadisk status --last
 
 ## Environment Variables
 
-| Variable  | Default           | Description                                                      |
-| :-------- | :---------------- | :--------------------------------------------------------------- |
-| `EXCLUDE` | `""`              | Comma-separated directories to exclude (e.g. `temp,cache,Trash`) |
-| `PROXY`   | `""`              | Proxy server (`http://...`, `socks5://...`)                      |
-| `PUID`    | _(auto-detected)_ | Override user UID for host directory permissions                 |
-| `PGID`    | _(auto-detected)_ | Override user GID for host directory permissions                 |
+| Variable  | Default           | Description                                                                                         |
+| :-------- | :---------------- | :-------------------------------------------------------------------------------------------------- |
+| `EXCLUDE` | `""`              | Comma-separated list of directories to exclude (e.g. `tmp,backup`)                                  |
+| `PROXY`   | `""`              | Proxy server settings (`http://...`, `socks5://...`, or format `TYPE,SERVER,PORT[,LOGIN,PASSWORD]`) |
+| `PUID`    | _(auto-detected)_ | Host user UID (detected from volume owner; override only if needed)                                 |
+| `PGID`    | _(auto-detected)_ | Host user GID (detected from volume owner; override only if needed)                                 |
 
 ---
 
