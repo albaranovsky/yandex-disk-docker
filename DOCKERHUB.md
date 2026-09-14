@@ -31,8 +31,8 @@ supporting read-only filesystems. Upstream packages are automatically tracked an
   `publish`, and `unpublish` without typing complex flags or config paths.
 - **Crash Loop Protection**: When started unconfigured in background mode, the container waits instead of looping
   crashes, displaying clear setup instructions.
-- **Graceful Shutdown**: Configured with 30-second stop timeout to ensure clean SQLite index commits without data
-  corruption.
+- **Proper Signal Handling**: Uses `tini` as PID 1 for correct `SIGTERM`/`SIGINT` propagation and zombie process
+  reaping.
 - **Hardened Security**: Full support for Read-Only Rootfs (`--read-only`) and `--security-opt=no-new-privileges:true`.
 - **Healthcheck**: Periodically monitors daemon health via `yadisk status`.
 - **Supply Chain Security**: Built with cryptographic SLSA Provenance and SBOM attestation.
@@ -71,7 +71,8 @@ Follow terminal instructions:
 
 #### Using Docker Compose (Recommended)
 
-A pre-configured [docker-compose.yml](docker-compose.yml) is included in the repository.
+A pre-configured [docker-compose.yml](docker-compose.yml) is included in the repository (includes 30-second stop grace
+period and log rotation):
 
 ```yaml
 services:

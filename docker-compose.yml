@@ -8,7 +8,7 @@ services:
     platform: linux/amd64
     container_name: yandex-disk
     restart: unless-stopped
-    stop_grace_period: 30s # Time for clean database commit and lock release
+    stop_grace_period: 30s # Time for graceful shutdown, sync state flush, and lock release
 
     logging:
       driver: "json-file"

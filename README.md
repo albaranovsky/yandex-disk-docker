@@ -27,8 +27,8 @@ against the official Yandex repository.
   `publish`, and `unpublish` without typing complex flags or config paths.
 - **Crash Loop Protection**: When started unconfigured in background mode, the container waits instead of looping
   crashes, displaying clear setup instructions.
-- **Graceful Shutdown**: Configured with 30-second stop timeout to ensure clean SQLite index commits without data
-  corruption.
+- **Proper Signal Handling**: Uses `tini` as PID 1 for correct `SIGTERM`/`SIGINT` propagation and zombie process
+  reaping.
 - **Hardened Security**: Full support for Read-Only Rootfs (`--read-only`) and `--security-opt=no-new-privileges:true`.
 - **Healthcheck**: Periodically monitors daemon health via `yadisk status`.
 - **Supply Chain Security**: Built with cryptographic SLSA Provenance and SBOM attestation.
@@ -110,7 +110,8 @@ Token and configuration will be saved to `./data/config`.
 
 #### Option A: Using Docker Compose (Recommended)
 
-A pre-configured [docker-compose.yml](docker-compose.yml) is included in the repository:
+A pre-configured [docker-compose.yml](docker-compose.yml) is included in the repository (includes 30-second stop grace
+period and log rotation):
 
 ```yaml
 services:
