@@ -69,6 +69,7 @@ jobs:
         if: steps.check.outputs.has_update == 'true'
         uses: peter-evans/create-pull-request@v8
         with:
+          token: ${{ secrets.AUTO_PR_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: "chore(deps): bump yandex-disk from ${{ steps.check.outputs.old_version }} to ${{ steps.check.outputs.new_version }}"
           title: "chore(deps): bump yandex-disk to ${{ steps.check.outputs.new_version }}"
           body: |
