@@ -10,34 +10,97 @@ if [ $# -eq 0 ] || [ "$1" = "help" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; 
 Usage: yadisk <command> [options]
 
 Commands:
-  status         Show synchronization status (e.g. yadisk status --last)
-  sync           Trigger manual synchronization
-  stop           Stop background synchronization
-  start          Start background synchronization
-  setup          Run interactive setup wizard
-  token          Obtain OAuth authentication token
+  status                 Show synchronization status (e.g. yadisk status --last)
+  sync                   Trigger manual synchronization
+  stop                   Stop background synchronization
+  start [options]        Start synchronization daemon in foreground (--no-daemon)
+  setup                  Run interactive setup wizard
+  token [file]           Obtain OAuth authentication token
+  publish <file/dir>     Make file or folder public and print link
+  unpublish <file/dir>   Revoke public link for file or folder
 
 All options and sub-commands are passed directly to yandex-disk.
 EOF
     exit 0
 fi
 
-# --- 2. Default CLI Arguments ---
+# --- 2. Drop Privileges if Executed via Root (e.g. docker exec) ---
+if [ "$(id -u)" -eq 0 ]; then
+    exec gosu yadisk "$0" "$@"
+fi
+
+CMD="$1"
+shift
+
+# --- 3. Build Default CLI Arguments ---
 ARGS=()
 [ -f "$CONFIG_DIR/config.cfg" ] && ARGS+=(--config="$CONFIG_DIR/config.cfg")
 
-case "$1" in
-    status|sync|stop|start|--no-daemon)
+case "$CMD" in
+    status|sync|stop|setup|token|publish|unpublish)
         ARGS+=(--dir="$DATA_DIR")
         [ -f "$CONFIG_DIR/passwd" ] && ARGS+=(--auth="$CONFIG_DIR/passwd")
+        ;;
+    start)
+        # --- Authentication Verification ---
+        if [ ! -f "$CONFIG_DIR/passwd" ]; then
+            if [ -t 0 ]; then
+                cat << 'EOF'
+=================================================================
+[i] Yandex.Disk authentication token not found in /data/config.
+    Interactive terminal detected. Launching setup wizard...
+=================================================================
+EOF
+                "$0" setup || exit $?
+                echo ""
+                echo "[i] Yandex.Disk setup completed."
+            else
+                cat << 'EOF'
+=================================================================
+[!] ERROR: Yandex.Disk authentication token not found in /data/config!
+    Run setup wizard to authenticate:
+
+    docker run -it --rm -v $(pwd)/data:/data <image> yadisk setup
+    # or via Makefile:
+    make setup
+=================================================================
+EOF
+                trap 'exit 0' SIGTERM SIGINT
+                while true; do
+                    sleep 3600 &
+                    wait $!
+                done
+            fi
+        fi
+
+        # --- Write Access Verification ---
+        if ! touch "$CONFIG_DIR/.yadisk_rw_test" 2>/dev/null || \
+           ! touch "$DATA_DIR/.yadisk_rw_test" 2>/dev/null; then
+            cat << EOF
+=================================================================
+[!] ERROR: Yandex.Disk storage directories are not writable by user yadisk [$(id -u):$(id -g)]!
+    Please verify host folder permissions for $CONFIG_DIR and $DATA_DIR.
+=================================================================
+EOF
+            rm -f "$CONFIG_DIR/.yadisk_rw_test" "$DATA_DIR/.yadisk_rw_test" 2>/dev/null || true
+            exit 1
+        fi
+        rm -f "$CONFIG_DIR/.yadisk_rw_test" "$DATA_DIR/.yadisk_rw_test"
+
+        ARGS+=(--dir="$DATA_DIR")
+        [ -f "$CONFIG_DIR/passwd" ] && ARGS+=(--auth="$CONFIG_DIR/passwd")
+        ARGS+=(--no-daemon)
+        [ -n "$EXCLUDE" ] && ARGS+=(--exclude-dirs="$EXCLUDE")
+
+        echo "[i] Starting Yandex.Disk daemon (UID:$(id -u):GID:$(id -g))..."
+        ;;
+    *)
+        set -- "$CMD" "$@"
+        CMD=""
         ;;
 esac
 
 [ -n "$PROXY" ] && ARGS+=(--proxy="$PROXY")
 
-# --- 3. Execute with Privileges Dropped ---
-if [ "$(id -u)" -eq 0 ]; then
-    exec gosu yadisk yandex-disk "${ARGS[@]}" "$@"
-else
-    exec yandex-disk "${ARGS[@]}" "$@"
-fi
+# --- 4. Execute Official CLI Client ---
+exec yandex-disk "${ARGS[@]}" ${CMD:+"$CMD"} "$@"

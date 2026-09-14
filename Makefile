@@ -15,7 +15,7 @@ pull: ## Pull latest docker image from registry
 	docker compose pull
 
 setup: ## Run interactive first-time setup wizard
-	docker compose run --rm yandex-disk setup
+	docker compose run --rm yandex-disk yadisk setup
 
 token: ## Obtain OAuth token directly
 	docker compose run --rm yandex-disk yadisk token
