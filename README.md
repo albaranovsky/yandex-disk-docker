@@ -9,7 +9,7 @@
 
 Docker image for the official **Yandex.Disk** command-line client (`yandex-disk` v`0.1.6.1080`).
 
-Runs Yandex.Disk background synchronization inside a lightweight Debian Bookworm Slim container, keeping your files and
+Runs Yandex.Disk background synchronization inside a lightweight Debian Slim container, keeping your files and
 configuration on the host with correct user permissions. Upstream package releases are continuously tracked and verified
 against the official Yandex repository.
 

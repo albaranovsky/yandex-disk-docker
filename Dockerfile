@@ -12,7 +12,7 @@ RUN curl -fsSL "${YADISK_DEB_URL}" -o /tmp/yandex-disk.deb && \
     rm -f /tmp/checksum.txt
 
 # --- Stage 2: Runtime image ---
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 ARG YADISK_VERSION
 LABEL org.opencontainers.image.title="yandex-disk-docker" \
       org.opencontainers.image.description="Lightweight and secure Yandex.Disk CLI client in Docker" \

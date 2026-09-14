@@ -14,7 +14,7 @@ supporting read-only filesystems. Upstream packages are automatically tracked an
 
 ## Supported Tags
 
-- [`latest`, `2.1.0`, `2.1`](Dockerfile) — Yandex.Disk CLI **v0.1.6.1080** on Debian Bookworm Slim
+- [`latest`, `2.1.0`, `2.1`](Dockerfile) — Yandex.Disk CLI **v0.1.6.1080** on Debian Slim
 
 ---
 
