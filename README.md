@@ -95,8 +95,10 @@ The wizard will prompt:
 
 Token and configuration will be saved to `./data/config`.
 
-> [!TIP] **Security Tip (Protect OAuth Token):** The `./data/config` directory contains your persistent OAuth
-> authentication token (`passwd`). On shared or multi-user Linux hosts, restrict access to your user only:
+<!-- prettier-ignore -->
+> [!TIP]
+> **Protect OAuth Token:** The `./data/config` directory contains your persistent OAuth authentication token
+> (`passwd`). On shared or multi-user Linux hosts, restrict access to your user only:
 >
 > ```bash
 > chmod 700 data/config

@@ -2,7 +2,6 @@
 
 [![Docker Image Version](https://img.shields.io/github/v/release/albaranovsky/yandex-disk-docker?logo=github&label=version)](https://github.com/albaranovsky/yandex-disk-docker/releases)
 [![Yandex.Disk CLI](https://img.shields.io/badge/yandex--disk-0.1.6.1080-blue?logo=yandex)](https://repo.yandex.ru/yandex-disk/)
-[![Docker Image Size](https://img.shields.io/docker/image-size/albaranovsky/yandex-disk-docker/latest?logo=docker)](https://hub.docker.com/r/albaranovsky/yandex-disk-docker)
 [![Architecture](https://img.shields.io/badge/arch-amd64-blue)](https://hub.docker.com/r/albaranovsky/yandex-disk-docker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GitHub Source](https://img.shields.io/badge/GitHub-Repository-black?logo=github)](https://github.com/albaranovsky/yandex-disk-docker)
@@ -56,8 +55,12 @@ Follow terminal instructions:
 3. Accept default folder path (`/home/yadisk/Yandex.Disk`).
 4. Select `n` for auto-start daemon (Docker manages container lifecycle).
 
-> 💡 **Security Tip (Protect OAuth Token):**  
-> Authorization token (`passwd`) and config are saved in `./data/config`. On shared Linux hosts, restrict access:
+Token and configuration will be saved to `./data/config`.
+
+<!-- prettier-ignore -->
+> 💡 **Security Tip (Protect OAuth Token):**
+> The `./data/config` directory contains your persistent OAuth authentication token (`passwd`). On shared or multi-user
+> Linux hosts, restrict access to your user only:
 >
 > ```bash
 > chmod 700 data/config
