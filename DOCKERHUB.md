@@ -27,8 +27,8 @@ supporting read-only filesystems. Upstream packages are automatically tracked an
   daemon via `gosu`. No file permission conflicts on the host.
 - **Unified Volume Mount `/data`**: Mount a single host folder (subdirectories `config` and `disk` are created
   automatically). Split mounting (`/data/config` and `/data/disk`) is also supported.
-- **Convenient CLI Utility (`yadisk`)**: Built-in CLI wrapper with commands `status`, `sync`, `stop`, `token`, and
-  `setup` without typing complex flags or config paths.
+- **Convenient CLI Utility (`yadisk`)**: Built-in CLI wrapper with commands `status`, `sync`, `stop`, `token`, `setup`,
+  `publish`, and `unpublish` without typing complex flags or config paths.
 - **Crash Loop Protection**: When started unconfigured in background mode, the container waits instead of looping
   crashes, displaying clear setup instructions.
 - **Graceful Shutdown**: Configured with 30-second stop timeout to ensure clean SQLite index commits without data
@@ -57,9 +57,11 @@ Follow terminal instructions:
 4. Select `n` for auto-start daemon (Docker manages container lifecycle).
 
 > 💡 **Security Tip (Protect OAuth Token):**  
-> Authorization token and config are saved in `./data/config`. On shared Linux hosts, restrict access:
+> Authorization token (`passwd`) and config are saved in `./data/config`. On shared Linux hosts, restrict access:
 >
 > ```bash
+> chmod 700 data/config
+> # or restrict the entire data directory:
 > chmod 700 data
 > ```
 
@@ -78,6 +80,11 @@ services:
     container_name: yandex-disk
     restart: unless-stopped
     stop_grace_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - ./data:/data
 ```
@@ -125,6 +132,18 @@ View last synchronized files:
 
 ```bash
 docker exec yandex-disk yadisk status --last
+```
+
+Publish file or folder to get a public link:
+
+```bash
+docker exec yandex-disk yadisk publish "Photos/vacation.zip"
+```
+
+Revoke public link:
+
+```bash
+docker exec yandex-disk yadisk unpublish "Photos/vacation.zip"
 ```
 
 ---

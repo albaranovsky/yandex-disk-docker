@@ -23,8 +23,8 @@ against the official Yandex repository.
   daemon via `gosu`. No file permission conflicts on the host.
 - **Unified Volume Mount `/data`**: Mount a single host folder (subdirectories `config` and `disk` are created
   automatically). Split mounting (`/data/config` and `/data/disk`) is also supported.
-- **Convenient CLI Utility (`yadisk`)**: Built-in CLI wrapper with commands `status`, `sync`, `stop`, `token`, and
-  `setup` without typing complex flags or config paths.
+- **Convenient CLI Utility (`yadisk`)**: Built-in CLI wrapper with commands `status`, `sync`, `stop`, `token`, `setup`,
+  `publish`, and `unpublish` without typing complex flags or config paths.
 - **Crash Loop Protection**: When started unconfigured in background mode, the container waits instead of looping
   crashes, displaying clear setup instructions.
 - **Graceful Shutdown**: Configured with 30-second stop timeout to ensure clean SQLite index commits without data
@@ -82,7 +82,7 @@ Thanks to interactive TTY auto-detection, the setup wizard starts **automaticall
 make setup
 
 # Option B: Using docker run directly
-docker run -it --rm -v "$(pwd)/data":/data ghcr.io/albaranovsky/yandex-disk-docker:latest
+docker run -it --rm -v "$(pwd)/data":/data albaranovsky/yandex-disk-docker:latest
 ```
 
 The wizard will prompt:
@@ -96,7 +96,7 @@ The wizard will prompt:
 Token and configuration will be saved to `./data/config`.
 
 > [!TIP] **Security Tip (Protect OAuth Token):** The `./data/config` directory contains your persistent OAuth
-> authentication token (`config.cfg`). On shared or multi-user Linux hosts, restrict access to your user only:
+> authentication token (`passwd`). On shared or multi-user Linux hosts, restrict access to your user only:
 >
 > ```bash
 > chmod 700 data/config
@@ -110,7 +110,23 @@ Token and configuration will be saved to `./data/config`.
 
 #### Option A: Using Docker Compose (Recommended)
 
-A pre-configured [docker-compose.yml](docker-compose.yml) is included in the repository.
+A pre-configured [docker-compose.yml](docker-compose.yml) is included in the repository:
+
+```yaml
+services:
+  yandex-disk:
+    image: albaranovsky/yandex-disk-docker:latest
+    container_name: yandex-disk
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - ./data:/data
+```
 
 Start service:
 
@@ -140,7 +156,7 @@ docker run -d \
   --restart unless-stopped \
   --stop-timeout 30 \
   -v "$(pwd)/data":/data \
-  ghcr.io/albaranovsky/yandex-disk-docker:latest
+  albaranovsky/yandex-disk-docker:latest
 ```
 
 With directory exclusions and proxy:
@@ -153,7 +169,7 @@ docker run -d \
   -e EXCLUDE="tmp,Trash,Cache" \
   -e PROXY="http://proxy.example.com:3128" \
   -v "$(pwd)/data":/data \
-  ghcr.io/albaranovsky/yandex-disk-docker:latest
+  albaranovsky/yandex-disk-docker:latest
 ```
 
 ---
@@ -215,7 +231,19 @@ docker exec -it yandex-disk yadisk token
 # Or before starting the service (standalone):
 make token
 # or with docker run:
-docker run -it --rm -v "$(pwd)/data":/data ghcr.io/albaranovsky/yandex-disk-docker:latest yadisk token
+docker run -it --rm -v "$(pwd)/data":/data albaranovsky/yandex-disk-docker:latest yadisk token
+```
+
+Publish file or folder to get a public link:
+
+```bash
+docker exec yandex-disk yadisk publish "Photos/vacation.zip"
+```
+
+Revoke public link:
+
+```bash
+docker exec yandex-disk yadisk unpublish "Photos/vacation.zip"
 ```
 
 Show CLI help:
@@ -248,7 +276,7 @@ For hardened environments where containers cannot modify their own root filesyst
 ```yaml
 services:
   yandex-disk:
-    image: ghcr.io/albaranovsky/yandex-disk-docker:latest
+    image: albaranovsky/yandex-disk-docker:latest
     container_name: yandex-disk
     restart: unless-stopped
     stop_grace_period: 30s
@@ -271,22 +299,31 @@ docker run -d \
   --tmpfs /tmp \
   --tmpfs /run \
   -v "$(pwd)/data":/data \
-  ghcr.io/albaranovsky/yandex-disk-docker:latest
+  albaranovsky/yandex-disk-docker:latest
 ```
 
 ---
 
 ## Testing
 
-The project includes an automated integration test suite ([tests/test.sh](tests/test.sh)) that validates:
+The project includes an automated integration test suite ([tests/test.sh](tests/test.sh)) containing 15 test cases that
+validate:
 
-- CLI help command execution
-- Non-root user permissions (`yadisk:1000`)
-- Custom UID/GID mapping (`PUID`/`PGID`)
+- CLI help banner and documentation of all commands (`status`, `sync`, `stop`, `start`, `setup`, `token`, `publish`,
+  `unpublish`)
+- Default non-root user permissions (`yadisk:1000`)
+- Dynamic host UID/GID mapping (`PUID`/`PGID`)
+- Direct unprivileged non-root mode (`--user 1001:1002`)
 - Read-Only Rootfs compatibility (`--read-only --tmpfs /tmp --tmpfs /run`)
-- Symlink integrity (`/home/yadisk/.config/yandex-disk`, `/home/yadisk/Yandex.Disk`, etc.)
-- Dynamic storage folder creation on mounted volume
-- Graceful shutdown on `SIGTERM` and crash loop prevention
+- Symlink integrity (`/home/yadisk/.config/yandex-disk`, `/home/yadisk/Yandex.Disk`, `/root/Yandex.Disk`, etc.)
+- Automatic storage directory initialization on volume mount (`/data/config` and `/data/disk`)
+- Split volume mounts support (`/data/config` and `/data/disk` as separate mount targets)
+- Graceful container shutdown on `SIGTERM` and crash-loop prevention
+- Unauthenticated status check behavior (`yadisk status`)
+- Daemon start flag preservation (`yadisk start --read-only`)
+- Daemon startup attempt when authentication token is present
+- Storage write permission check failure handling (`.yadisk_rw_test`)
+- Environment variables propagation (`EXCLUDE` and `PROXY`)
 
 Run the test suite locally:
 
@@ -297,5 +334,5 @@ make test
 Or test a specific image directly:
 
 ```bash
-./tests/test.sh ghcr.io/albaranovsky/yandex-disk-docker:latest
+./tests/test.sh albaranovsky/yandex-disk-docker:latest
 ```
