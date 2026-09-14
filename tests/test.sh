@@ -120,6 +120,49 @@ fi
 docker rm -f "$TEST_CONTAINER" >/dev/null 2>&1 || true
 TEST_CONTAINER=""
 
+# Test 8: All CLI commands present in yadisk help
+log_test "All CLI commands documented in yadisk help"
+if OUTPUT=$(docker run --rm --platform "$PLATFORM" "$IMAGE" yadisk help 2>&1) && \
+   echo "$OUTPUT" | grep -q "status" && \
+   echo "$OUTPUT" | grep -q "sync" && \
+   echo "$OUTPUT" | grep -q "stop" && \
+   echo "$OUTPUT" | grep -q "start" && \
+   echo "$OUTPUT" | grep -q "setup" && \
+   echo "$OUTPUT" | grep -q "token" && \
+   echo "$OUTPUT" | grep -q "publish" && \
+   echo "$OUTPUT" | grep -q "unpublish"; then
+    pass
+else
+    fail "One or more commands missing from yadisk help output"
+fi
+
+# Test 9: CLI command execution (yadisk status)
+log_test "CLI command execution (yadisk status)"
+OUTPUT=$(docker run --rm --platform "$PLATFORM" "$IMAGE" yadisk status 2>&1 || true)
+if echo "$OUTPUT" | grep -q "file with OAuth token hasn't been found"; then
+    pass
+else
+    fail "Unexpected output from yadisk status: $OUTPUT"
+fi
+
+# Test 10: Start command with extra flags (yadisk start --read-only)
+log_test "Daemon start flag preservation (yadisk start --read-only)"
+TEST_CONTAINER=$(docker run -d --platform "$PLATFORM" "$IMAGE" yadisk start --read-only)
+sleep 2
+
+if [ "$(docker inspect -f '{{.State.Running}}' "$TEST_CONTAINER" 2>/dev/null)" = "true" ] && \
+   docker logs "$TEST_CONTAINER" 2>&1 | grep -q "Yandex.Disk authentication token not found"; then
+    if docker stop --time 5 "$TEST_CONTAINER" >/dev/null 2>&1; then
+        pass
+    else
+        fail "Container did not stop cleanly"
+    fi
+else
+    fail "Container failed to start with yadisk start --read-only"
+fi
+docker rm -f "$TEST_CONTAINER" >/dev/null 2>&1 || true
+TEST_CONTAINER=""
+
 echo ""
 if [ "$FAILED" -eq 0 ]; then
     echo -e "${GREEN}=== All $TOTAL tests passed successfully! ===${RESET}"
