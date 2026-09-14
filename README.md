@@ -178,20 +178,23 @@ docker run -d \
 
 A [Makefile](Makefile) is included for convenient everyday management:
 
-| Category            | Command        | Action                                     |
-| :------------------ | :------------- | :----------------------------------------- |
-| **Service Control** | `make up`      | Start daemon in background                 |
-|                     | `make down`    | Gracefully stop the daemon                 |
-|                     | `make restart` | Restart the daemon                         |
-| **Operations**      | `make status`  | Check synchronization status               |
-|                     | `make sync`    | Trigger manual synchronization             |
-|                     | `make logs`    | Stream logs in real time                   |
-| **Authentication**  | `make setup`   | Run interactive authentication wizard      |
-|                     | `make token`   | Obtain OAuth authentication token directly |
-| **Build & Test**    | `make build`   | Build Docker image                         |
-|                     | `make pull`    | Pull latest image from registry            |
-|                     | `make test`    | Run automated integration test suite       |
-| **Debugging**       | `make shell`   | Open bash shell inside container           |
+| Category            | Command          | Action                                            |
+| :------------------ | :--------------- | :------------------------------------------------ |
+| **Service Control** | `make up`        | Start daemon in background                        |
+|                     | `make down`      | Gracefully stop the daemon                        |
+|                     | `make restart`   | Restart the daemon                                |
+| **Operations**      | `make status`    | Check synchronization status (supports ARGS)      |
+|                     | `make sync`      | Trigger manual synchronization                    |
+|                     | `make publish`   | Publish file or folder (`FILE=path`)              |
+|                     | `make unpublish` | Revoke public link (`FILE=path`)                  |
+|                     | `make logs`      | Stream logs in real time                          |
+| **Authentication**  | `make setup`     | Run interactive authentication wizard             |
+|                     | `make token`     | Obtain OAuth authentication token directly        |
+| **Build & Test**    | `make build`     | Build Docker image                                |
+|                     | `make pull`      | Pull latest image from registry                   |
+|                     | `make test`      | Run automated integration test suite (IMAGE=...)  |
+|                     | `make lint`      | Lint Dockerfile and scripts (Hadolint/ShellCheck) |
+| **Debugging**       | `make shell`     | Open bash shell inside container                  |
 
 ---
 

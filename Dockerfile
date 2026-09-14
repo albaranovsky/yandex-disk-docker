@@ -7,7 +7,9 @@ FROM curlimages/curl:8.22.0 AS downloader
 ARG YADISK_SHA256
 ARG YADISK_DEB_URL=https://repo.yandex.ru/yandex-disk/yandex-disk_latest_amd64.deb
 RUN curl -fsSL "${YADISK_DEB_URL}" -o /tmp/yandex-disk.deb && \
-    echo "${YADISK_SHA256}  /tmp/yandex-disk.deb" | sha256sum -c -
+    printf '%s  %s\n' "${YADISK_SHA256}" /tmp/yandex-disk.deb > /tmp/checksum.txt && \
+    sha256sum -c /tmp/checksum.txt && \
+    rm -f /tmp/checksum.txt
 
 # --- Stage 2: Runtime image ---
 FROM debian:bookworm-slim
