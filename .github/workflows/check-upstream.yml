@@ -47,8 +47,9 @@ jobs:
             printf '{\n  "package": "yandex-disk",\n  "version": "%s",\n  "sha256": "%s",\n  "etag": "%s"\n}\n' \
               "$UPSTREAM_VERSION" "$UPSTREAM_SHA256" "$UPSTREAM_ETAG" > .upstream.json
 
-            # Update Dockerfile ARG YADISK_VERSION
+            # Update Dockerfile ARG YADISK_VERSION and ARG YADISK_SHA256
             sed -i "s/^ARG YADISK_VERSION=.*/ARG YADISK_VERSION=$UPSTREAM_VERSION/" Dockerfile
+            sed -i "s/^ARG YADISK_SHA256=.*/ARG YADISK_SHA256=$UPSTREAM_SHA256/" Dockerfile
 
             # Update version references in documentation
             if [ -n "$CURRENT_VERSION" ]; then

@@ -1,10 +1,13 @@
 # syntax=docker/dockerfile:1
 ARG YADISK_VERSION=0.1.6.1080
+ARG YADISK_SHA256=47ba503b4dfccecc824386d67d686abe4b5356b8b546e48fce8811b5fa88a718
 
 # --- Stage 1: Download package ---
 FROM curlimages/curl:8.22.0 AS downloader
+ARG YADISK_SHA256
 ARG YADISK_DEB_URL=https://repo.yandex.ru/yandex-disk/yandex-disk_latest_amd64.deb
-RUN curl -fsSL "${YADISK_DEB_URL}" -o /tmp/yandex-disk.deb
+RUN curl -fsSL "${YADISK_DEB_URL}" -o /tmp/yandex-disk.deb && \
+    echo "${YADISK_SHA256}  /tmp/yandex-disk.deb" | sha256sum -c -
 
 # --- Stage 2: Runtime image ---
 FROM debian:bookworm-slim
@@ -43,7 +46,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY --chmod=755 entrypoint.sh yadisk /usr/local/bin/
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD ["yadisk", "status"]
 
 ENTRYPOINT ["tini", "-g", "--", "entrypoint.sh"]
