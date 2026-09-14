@@ -20,10 +20,10 @@ jobs:
       - name: Check for new upstream package
         id: check
         run: |
-          RAW_INFO=$(curl -sSL https://repo.yandex.ru/yandex-disk/deb/dists/stable/main/binary-amd64/Packages.gz | gzip -d)
-          UPSTREAM_VERSION=$(echo "$RAW_INFO" | awk -F': ' '$1 == "Version" {print $2}')
-          UPSTREAM_SHA256=$(echo "$RAW_INFO" | awk -F': ' '$1 == "SHA256" {print $2}')
-          UPSTREAM_ETAG=$(curl -sI https://repo.yandex.ru/yandex-disk/yandex-disk_latest_amd64.deb | grep -i '^etag:' | tr -d '\r"' | awk '{print $2}')
+          RAW_INFO=$(curl -fsSL https://repo.yandex.ru/yandex-disk/deb/dists/stable/main/binary-amd64/Packages.gz | gzip -d)
+          UPSTREAM_VERSION=$(echo "$RAW_INFO" | awk -F': ' '$1 == "Version" {print $2}' | head -n 1)
+          UPSTREAM_SHA256=$(echo "$RAW_INFO" | awk -F': ' '$1 == "SHA256" {print $2}' | head -n 1)
+          UPSTREAM_ETAG=$(curl -fsI https://repo.yandex.ru/yandex-disk/yandex-disk_latest_amd64.deb | grep -i '^etag:' | tr -d '\r"' | awk '{print $2}')
 
           if [ -z "$UPSTREAM_VERSION" ]; then
             echo "::error::Failed to fetch upstream metadata from Yandex repository"
