@@ -163,6 +163,24 @@ docker exec yandex-disk yadisk unpublish "Photos/vacation.zip"
 
 ---
 
+## Supply Chain Security
+
+Published images include cryptographic SLSA Provenance and Software Bill of Materials (SBOM) attestations.
+
+Verify attestations and view build provenance using Docker Scout:
+
+```bash
+docker scout attestation list albaranovsky/yandex-disk-docker:latest
+```
+
+Or inspect raw OCI attestation manifests using Docker Buildx:
+
+```bash
+docker buildx imagetools inspect albaranovsky/yandex-disk-docker:latest
+```
+
+---
+
 ## Links
 
 - [GitHub Repository & Source Code](https://github.com/albaranovsky/yandex-disk-docker)

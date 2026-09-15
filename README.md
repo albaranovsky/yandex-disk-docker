@@ -1,8 +1,8 @@
 # yandex-disk-docker
 
 [![CI & Build](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml)
-[![Docker Pulls](https://img.shields.io/docker/pulls/albaranovsky/yandex-disk-docker?logo=docker)](https://hub.docker.com/r/albaranovsky/yandex-disk-docker)
-[![Docker Image](https://img.shields.io/badge/GHCR-image-blue?logo=docker)](https://github.com/albaranovsky/yandex-disk-docker/pkgs/container/yandex-disk-docker)
+[![Docker Hub](https://img.shields.io/badge/Docker_Hub-image-blue?logo=docker)](https://hub.docker.com/r/albaranovsky/yandex-disk-docker)
+[![GHCR](https://img.shields.io/badge/GHCR-image-blue?logo=github)](https://github.com/albaranovsky/yandex-disk-docker/pkgs/container/yandex-disk-docker)
 [![Attestation](https://img.shields.io/badge/Attestation-Verified-success?logo=github)](https://github.com/albaranovsky/yandex-disk-docker/attestations)
 [![Yandex.Disk](https://img.shields.io/badge/yandex--disk-0.1.6.1080-blue?logo=yandex)](https://repo.yandex.ru/yandex-disk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -341,4 +341,28 @@ Or test a specific image directly:
 
 ```bash
 ./tests/test.sh albaranovsky/yandex-disk-docker:latest
+```
+
+---
+
+## Supply Chain Security
+
+All published container images include cryptographic SLSA Provenance and Software Bill of Materials (SBOM) attestations.
+
+Verify attestations and view build provenance using Docker Scout:
+
+```bash
+docker scout attestation list albaranovsky/yandex-disk-docker:latest
+```
+
+Or inspect raw OCI attestation manifests using Docker Buildx:
+
+```bash
+docker buildx imagetools inspect albaranovsky/yandex-disk-docker:latest
+```
+
+Cryptographically verify build provenance via GitHub CLI:
+
+```bash
+gh attestation verify oci://ghcr.io/albaranovsky/yandex-disk-docker:latest --owner albaranovsky
 ```
