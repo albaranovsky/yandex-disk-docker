@@ -35,6 +35,17 @@ against the official Yandex repository.
 
 ---
 
+## Use Cases
+
+- **Home NAS & Storage Servers (x86_64)**: Seamless background sync on Synology DSM, QNAP, TrueNAS, and Unraid with
+  automatic PUID/PGID mapping.
+- **Headless Linux Servers & VPS**: Lightweight, unattended 24/7 synchronization without X11 or desktop GUI
+  dependencies.
+- **Offsite Backup Storage**: Replicate local server backups, database dumps, and media archives to Yandex.Disk cloud.
+- **Docker Compose & Portainer**: Drop-in container configuration for self-hosted homeservers and single-node setups.
+
+---
+
 ## Volume Structure
 
 - **Option 1 (Recommended, unified storage):**

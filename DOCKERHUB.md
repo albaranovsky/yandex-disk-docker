@@ -1,10 +1,10 @@
 # Yandex.Disk CLI client in Docker
 
+[![CI & Build](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml)
 [![Docker Image Version](https://img.shields.io/github/v/release/albaranovsky/yandex-disk-docker?logo=github&label=version)](https://github.com/albaranovsky/yandex-disk-docker/releases)
+[![Attestation](https://img.shields.io/badge/Attestation-Verified-success?logo=github)](https://github.com/albaranovsky/yandex-disk-docker/attestations)
 [![Yandex.Disk CLI](https://img.shields.io/badge/yandex--disk-0.1.6.1080-blue?logo=yandex)](https://repo.yandex.ru/yandex-disk/)
-[![Architecture](https://img.shields.io/badge/arch-amd64-blue)](https://hub.docker.com/r/yadisk/yandex-disk)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![GitHub Source](https://img.shields.io/badge/GitHub-Repository-black?logo=github)](https://github.com/albaranovsky/yandex-disk-docker)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Lightweight and secure Docker image for the official **Yandex.Disk CLI** (`yandex-disk` v`0.1.6.1080`) client.  
 Runs background synchronization inside an isolated Debian container, preserving correct host file ownership and
@@ -14,7 +14,19 @@ supporting read-only filesystems. Upstream packages are automatically tracked an
 
 ## Supported Tags
 
-- [`latest`, `2.1.0`, `2.1`](Dockerfile) — Yandex.Disk CLI **v0.1.6.1080** on Debian Slim
+- [`latest`, `2.1.1`, `2.1`](Dockerfile) — Yandex.Disk CLI **v0.1.6.1080** on Debian Slim
+  ([View all tags on Docker Hub](https://hub.docker.com/r/yadisk/yandex-disk/tags))
+
+---
+
+## Use Cases
+
+- **Home NAS & Storage Servers (x86_64)**: Seamless background sync on Synology DSM, QNAP, TrueNAS, and Unraid with
+  automatic PUID/PGID mapping.
+- **Headless Linux Servers & VPS**: Lightweight, unattended 24/7 synchronization without X11 or desktop GUI
+  dependencies.
+- **Offsite Backup Storage**: Replicate local server backups, database dumps, and media archives to Yandex.Disk cloud.
+- **Docker Compose & Portainer**: Drop-in container configuration for self-hosted homeservers and single-node setups.
 
 ---
 
