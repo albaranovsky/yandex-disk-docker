@@ -3,7 +3,7 @@ services:
     build: .
     image: yandex-disk:latest
     # Or use pre-built image from Docker Hub or GHCR:
-    # image: albaranovsky/yandex-disk-docker:latest
+    # image: yadisk/yandex-disk:latest
     # image: ghcr.io/albaranovsky/yandex-disk-docker:latest
     platform: linux/amd64
     container_name: yandex-disk

@@ -1,7 +1,7 @@
 # yandex-disk-docker
 
 [![CI & Build](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml)
-[![Docker Hub](https://img.shields.io/badge/Docker_Hub-image-blue?logo=docker)](https://hub.docker.com/r/albaranovsky/yandex-disk-docker)
+[![Docker Hub](https://img.shields.io/badge/Docker_Hub-image-blue?logo=docker)](https://hub.docker.com/r/yadisk/yandex-disk)
 [![GHCR](https://img.shields.io/badge/GHCR-image-blue?logo=github)](https://github.com/albaranovsky/yandex-disk-docker/pkgs/container/yandex-disk-docker)
 [![Attestation](https://img.shields.io/badge/Attestation-Verified-success?logo=github)](https://github.com/albaranovsky/yandex-disk-docker/attestations)
 [![Yandex.Disk](https://img.shields.io/badge/yandex--disk-0.1.6.1080-blue?logo=yandex)](https://repo.yandex.ru/yandex-disk/)
@@ -59,7 +59,7 @@ against the official Yandex repository.
 
 ```bash
 # From Docker Hub:
-docker pull albaranovsky/yandex-disk-docker:latest
+docker pull yadisk/yandex-disk:latest
 
 # Or from GitHub Container Registry (GHCR):
 docker pull ghcr.io/albaranovsky/yandex-disk-docker:latest
@@ -82,7 +82,7 @@ Thanks to interactive TTY auto-detection, the setup wizard starts **automaticall
 make setup
 
 # Option B: Using docker run directly
-docker run -it --rm -v "$(pwd)/data":/data albaranovsky/yandex-disk-docker:latest
+docker run -it --rm -v "$(pwd)/data":/data yadisk/yandex-disk:latest
 ```
 
 The wizard will prompt:
@@ -118,7 +118,7 @@ period and log rotation):
 ```yaml
 services:
   yandex-disk:
-    image: albaranovsky/yandex-disk-docker:latest
+    image: yadisk/yandex-disk:latest
     container_name: yandex-disk
     restart: unless-stopped
     stop_grace_period: 30s
@@ -159,7 +159,7 @@ docker run -d \
   --restart unless-stopped \
   --stop-timeout 30 \
   -v "$(pwd)/data":/data \
-  albaranovsky/yandex-disk-docker:latest
+  yadisk/yandex-disk:latest
 ```
 
 With directory exclusions and proxy:
@@ -172,7 +172,7 @@ docker run -d \
   -e EXCLUDE="tmp,Trash,Cache" \
   -e PROXY="http://proxy.example.com:3128" \
   -v "$(pwd)/data":/data \
-  albaranovsky/yandex-disk-docker:latest
+  yadisk/yandex-disk:latest
 ```
 
 ---
@@ -237,7 +237,7 @@ docker exec -it yandex-disk yadisk token
 # Or before starting the service (standalone):
 make token
 # or with docker run:
-docker run -it --rm -v "$(pwd)/data":/data albaranovsky/yandex-disk-docker:latest yadisk token
+docker run -it --rm -v "$(pwd)/data":/data yadisk/yandex-disk:latest yadisk token
 ```
 
 Publish file or folder to get a public link:
@@ -282,7 +282,7 @@ For hardened environments where containers cannot modify their own root filesyst
 ```yaml
 services:
   yandex-disk:
-    image: albaranovsky/yandex-disk-docker:latest
+    image: yadisk/yandex-disk:latest
     container_name: yandex-disk
     restart: unless-stopped
     stop_grace_period: 30s
@@ -305,7 +305,7 @@ docker run -d \
   --tmpfs /tmp \
   --tmpfs /run \
   -v "$(pwd)/data":/data \
-  albaranovsky/yandex-disk-docker:latest
+  yadisk/yandex-disk:latest
 ```
 
 ---
@@ -340,7 +340,7 @@ make test
 Or test a specific image directly:
 
 ```bash
-./tests/test.sh albaranovsky/yandex-disk-docker:latest
+./tests/test.sh yadisk/yandex-disk:latest
 ```
 
 ---
@@ -352,13 +352,13 @@ All published container images include cryptographic SLSA Provenance and Softwar
 Verify attestations and view build provenance using Docker Scout:
 
 ```bash
-docker scout attestation list albaranovsky/yandex-disk-docker:latest
+docker scout attestation list yadisk/yandex-disk:latest
 ```
 
 Or inspect raw OCI attestation manifests using Docker Buildx:
 
 ```bash
-docker buildx imagetools inspect albaranovsky/yandex-disk-docker:latest
+docker buildx imagetools inspect yadisk/yandex-disk:latest
 ```
 
 Cryptographically verify build provenance via GitHub CLI:

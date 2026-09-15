@@ -2,7 +2,7 @@
 
 [![Docker Image Version](https://img.shields.io/github/v/release/albaranovsky/yandex-disk-docker?logo=github&label=version)](https://github.com/albaranovsky/yandex-disk-docker/releases)
 [![Yandex.Disk CLI](https://img.shields.io/badge/yandex--disk-0.1.6.1080-blue?logo=yandex)](https://repo.yandex.ru/yandex-disk/)
-[![Architecture](https://img.shields.io/badge/arch-amd64-blue)](https://hub.docker.com/r/albaranovsky/yandex-disk-docker)
+[![Architecture](https://img.shields.io/badge/arch-amd64-blue)](https://hub.docker.com/r/yadisk/yandex-disk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GitHub Source](https://img.shields.io/badge/GitHub-Repository-black?logo=github)](https://github.com/albaranovsky/yandex-disk-docker)
 
@@ -45,7 +45,7 @@ supporting read-only filesystems. Upstream packages are automatically tracked an
 Run interactive setup wizard to link your Yandex account:
 
 ```bash
-docker run -it --rm -v "$(pwd)/data":/data albaranovsky/yandex-disk-docker:latest
+docker run -it --rm -v "$(pwd)/data":/data yadisk/yandex-disk:latest
 ```
 
 Follow terminal instructions:
@@ -80,7 +80,7 @@ period and log rotation):
 ```yaml
 services:
   yandex-disk:
-    image: albaranovsky/yandex-disk-docker:latest
+    image: yadisk/yandex-disk:latest
     container_name: yandex-disk
     restart: unless-stopped
     stop_grace_period: 30s
@@ -113,7 +113,7 @@ docker run -d \
   --restart unless-stopped \
   --stop-timeout 30 \
   -v "$(pwd)/data":/data \
-  albaranovsky/yandex-disk-docker:latest
+  yadisk/yandex-disk:latest
 ```
 
 ---
@@ -170,13 +170,13 @@ Published images include cryptographic SLSA Provenance and Software Bill of Mate
 Verify attestations and view build provenance using Docker Scout:
 
 ```bash
-docker scout attestation list albaranovsky/yandex-disk-docker:latest
+docker scout attestation list yadisk/yandex-disk:latest
 ```
 
 Or inspect raw OCI attestation manifests using Docker Buildx:
 
 ```bash
-docker buildx imagetools inspect albaranovsky/yandex-disk-docker:latest
+docker buildx imagetools inspect yadisk/yandex-disk:latest
 ```
 
 ---

@@ -21,6 +21,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  DOCKERHUB_REPO: yadisk/yandex-disk
 
 jobs:
   lint:
@@ -112,7 +113,7 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            ${{ github.repository == 'albaranovsky/yandex-disk-docker' && env.IMAGE_NAME || '' }}
+            ${{ github.repository == 'albaranovsky/yandex-disk-docker' && env.DOCKERHUB_REPO || '' }}
           tags: |
             type=raw,value=latest
             type=semver,pattern={{version}}
@@ -147,7 +148,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ env.IMAGE_NAME }}
+          repository: ${{ env.DOCKERHUB_REPO }}
           short-description: "Lightweight and secure Yandex.Disk CLI client in Docker with automated sync and non-root user"
           readme-filepath: ./DOCKERHUB.md
           enable-url-completion: true
