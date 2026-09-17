@@ -7,7 +7,6 @@ updates:
       interval: "weekly"
     labels:
       - "dependencies"
-      - "docker"
     groups:
       docker-dependencies:
         patterns:
@@ -20,7 +19,6 @@ updates:
       interval: "weekly"
     labels:
       - "dependencies"
-      - "github-actions"
     groups:
       github-actions:
         patterns:
