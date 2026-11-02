@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-ARG YADISK_VERSION=0.1.6.1080
-ARG YADISK_SHA256=47ba503b4dfccecc824386d67d686abe4b5356b8b546e48fce8811b5fa88a718
+ARG YADISK_VERSION=0.1.6.1081
+ARG YADISK_SHA256=7970b3da0ad644f06f7b3ae4f0c69cc28d4730f95a0a02b7af2b58eb6000f9c5
 
 # --- Stage 1: Download package ---
 FROM curlimages/curl:8.22.0 AS downloader
