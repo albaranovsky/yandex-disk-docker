@@ -4,10 +4,10 @@
 [![Docker Hub](https://img.shields.io/badge/Docker_Hub-image-blue?logo=docker)](https://hub.docker.com/r/yadisk/yandex-disk)
 [![GHCR](https://img.shields.io/badge/GHCR-image-blue?logo=github)](https://github.com/albaranovsky/yandex-disk-docker/pkgs/container/yandex-disk-docker)
 [![Attestation](https://img.shields.io/badge/Attestation-Verified-success?logo=github)](https://github.com/albaranovsky/yandex-disk-docker/attestations)
-[![Yandex.Disk](https://img.shields.io/badge/yandex--disk-0.1.6.1080-blue?logo=yandex)](https://repo.yandex.ru/yandex-disk/)
+[![Yandex.Disk](https://img.shields.io/badge/yandex--disk-0.1.6.1081-blue?logo=yandex)](https://repo.yandex.ru/yandex-disk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Docker image for the official **Yandex.Disk** command-line client (`yandex-disk` v`0.1.6.1080`).
+Docker image for the official **Yandex.Disk** command-line client (`yandex-disk` v`0.1.6.1081`).
 
 Runs Yandex.Disk background synchronization inside a lightweight Debian Slim container, keeping your files and
 configuration on the host with correct user permissions. Upstream package releases are continuously tracked and verified
