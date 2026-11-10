@@ -2,7 +2,7 @@
 
 IMAGE ?= yandex-disk:latest
 
-.PHONY: help build pull setup token up down restart status sync publish unpublish test lint logs shell
+.PHONY: help build pull setup token up down restart status sync publish unpublish test test-unit test-integration lint logs shell
 
 help: ## Show help message
 	@echo "Usage: make [target]"
@@ -45,7 +45,12 @@ unpublish: ## Revoke public link (make unpublish FILE=path)
 	@test -n "$(FILE)" || { echo "Usage: make unpublish FILE=<path>"; exit 1; }
 	docker compose exec yandex-disk yadisk unpublish "$(FILE)"
 
-test: ## Run automated integration test suite (IMAGE=...)
+test: test-unit test-integration ## Run script and container tests (IMAGE=...)
+
+test-unit: ## Test shell script behavior without Docker (requires Python 3.8+)
+	python3 -m unittest discover -s tests -p 'test_*.py'
+
+test-integration: ## Run Docker integration tests (IMAGE=...)
 	./tests/test.sh $(IMAGE)
 
 lint: ## Lint Dockerfile and shell scripts with Hadolint and ShellCheck

@@ -22,8 +22,7 @@ LABEL org.opencontainers.image.title="yandex-disk-docker" \
       org.opencontainers.image.licenses="MIT"
 
 ARG DEBIAN_FRONTEND=noninteractive
-ENV PUID="" \
-    PGID="" \
+ENV HOME="/home/yadisk" \
     EXCLUDE="" \
     PROXY=""
 
@@ -34,19 +33,19 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
-        gosu \
         tini \
         /tmp/yandex-disk.deb && \
     groupadd -g 1000 yadisk && \
     useradd -u 1000 -g 1000 -d /home/yadisk -m -s /bin/bash yadisk && \
-    mkdir -p /root/.config /home/yadisk/.config /data/config /data/disk && \
-    ln -s /data/config /root/.config/yandex-disk && \
+    mkdir -p /home/yadisk/.config /data/config /data/disk && \
+    chmod 755 /home/yadisk /home/yadisk/.config && \
     ln -s /data/config /home/yadisk/.config/yandex-disk && \
-    ln -s /data/disk /root/Yandex.Disk && \
     ln -s /data/disk /home/yadisk/Yandex.Disk && \
     chown -R yadisk:yadisk /data /home/yadisk
 
 COPY --chmod=755 entrypoint.sh yadisk /usr/local/bin/
+
+USER 1000:1000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD ["yadisk", "status"]

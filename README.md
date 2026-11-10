@@ -7,373 +7,224 @@
 [![Yandex.Disk](https://img.shields.io/badge/yandex--disk-0.1.6.1081-blue?logo=yandex)](https://repo.yandex.ru/yandex-disk/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Docker image for the official **Yandex.Disk** command-line client (`yandex-disk` v`0.1.6.1081`).
+Docker image for the official **Yandex.Disk CLI v0.1.6.1081**, with persistent storage, a non-root user,
+`tini` for signal handling, and a small `yadisk` command wrapper.
 
-Runs Yandex.Disk background synchronization inside a lightweight Debian Slim container, keeping your files and
-configuration on the host with correct user permissions. Upstream package releases are continuously tracked and verified
-against the official Yandex repository.
+## Runtime model
 
----
+- Runs as **UID/GID 1000:1000** by default. Override with Compose `user:` or Docker `--user`.
+- Stores configuration and OAuth token in `/data/config`, synchronized files in `/data/disk`.
+- Never changes host file ownership or container user accounts at startup.
+- Authentication is explicit. Starting without a nonempty token exits with an error.
+- Runs synchronization in the foreground with `--no-daemon`; healthcheck uses `yadisk status`.
+- Supports read-only rootfs with writable storage and temporary directories.
+- Verifies the upstream package with SHA256; published images include SBOM and provenance attestations.
 
-## Features
+The image contains the amd64 client. Use `platform: linux/amd64` in Compose or `--platform linux/amd64` with Docker
+on another architecture (requires emulation).
 
-- **Non-Root by Default**: Runs daemon under dedicated `yadisk:1000` user.
-- **Automatic Setup Wizard**: Launches setup wizard automatically on interactive first run (`docker run -it`).
-- **Automatic UID/GID Detection (PUID/PGID)**: Dynamically detects the owner of the mounted host folder and runs the
-  daemon via `gosu`. No file permission conflicts on the host.
-- **Unified Volume Mount `/data`**: Mount a single host folder (subdirectories `config` and `disk` are created
-  automatically). Split mounting (`/data/config` and `/data/disk`) is also supported.
-- **Convenient CLI Utility (`yadisk`)**: Built-in CLI wrapper with commands `status`, `sync`, `stop`, `token`, `setup`,
-  `publish`, and `unpublish` without typing complex flags or config paths.
-- **Crash Loop Protection**: When started unconfigured in background mode, the container waits instead of looping
-  crashes, displaying clear setup instructions.
-- **Proper Signal Handling**: Uses `tini` as PID 1 for correct `SIGTERM`/`SIGINT` propagation and zombie process
-  reaping.
-- **Hardened Security**: Full support for Read-Only Rootfs (`--read-only`) and `--security-opt=no-new-privileges:true`.
-- **Healthcheck**: Periodically monitors daemon health via `yadisk status`.
-- **Supply Chain Security**: Built with cryptographic SLSA Provenance and SBOM attestation.
+This README describes the source tree. Registry images are published from release tags; commits on `main` do not
+update the images. Build locally when trying changes that have not yet been released.
 
----
+## Quick start with Compose
 
-## Use Cases
+### 1. Prepare storage and select the user
 
-- **Home NAS & Storage Servers (x86_64)**: Seamless background sync on Synology DSM, QNAP, TrueNAS, and Unraid with
-  automatic PUID/PGID mapping.
-- **Headless Linux Servers & VPS**: Lightweight, unattended 24/7 synchronization without X11 or desktop GUI
-  dependencies.
-- **Offsite Backup Storage**: Replicate local server backups, database dumps, and media archives to Yandex.Disk cloud.
-- **Docker Compose & Portainer**: Drop-in container configuration for self-hosted homeservers and single-node setups.
-
----
-
-## Volume Structure
-
-- **Option 1 (Recommended, unified storage):**
-  - `/data` — Root storage directory (automatically contains `/data/config` and `/data/disk`).
-    ```bash
-    -v "$(pwd)/data":/data
-    ```
-- **Option 2 (Separate volumes for config and disk):**
-  - `/data/config` — Configuration and authentication token.
-  - `/data/disk` — Synchronized files directory.
-    ```bash
-    -v "$(pwd)/config":/data/config -v "$(pwd)/disk":/data/disk
-    ```
-
----
-
-## Quick Start
-
-### 1. Obtain the Image
-
-**Option A: Pre-built image from Docker Hub or GHCR (fastest):**
+Run as the host account that should own the synchronized files:
 
 ```bash
-# From Docker Hub:
-docker pull yadisk/yandex-disk:latest
-
-# Or from GitHub Container Registry (GHCR):
-docker pull ghcr.io/albaranovsky/yandex-disk-docker:latest
+mkdir -p data/config data/disk
+chmod 700 data/config
+id -u
+id -g
 ```
 
-**Option B: Build locally from source:**
-
-```bash
-docker build -t yandex-disk:latest .
-```
-
----
-
-### 2. First-Time Setup & Authentication
-
-Thanks to interactive TTY auto-detection, the setup wizard starts **automatically** when run interactively:
-
-```bash
-# Option A: Using Makefile (fastest)
-make setup
-
-# Option B: Using docker run directly
-docker run -it --rm -v "$(pwd)/data":/data yadisk/yandex-disk:latest
-```
-
-The wizard will prompt:
-
-1. **Use proxy server?** (Usually `N`, or configure if needed).
-2. **Open link in browser** (e.g., `https://ya.ru/device`), authorize access, and enter the code into the terminal.
-3. **Path to Yandex.Disk folder**: Press Enter to use default (`/home/yadisk/Yandex.Disk`, automatically linked to
-   `/data/disk`).
-4. **Start daemon on system boot?** Choose `n` (Docker manages container lifecycle).
-
-Token and configuration will be saved to `./data/config`.
-
-<!-- prettier-ignore -->
-> [!TIP]
-> **Protect OAuth Token:** The `./data/config` directory contains your persistent OAuth authentication token
-> (`passwd`). On shared or multi-user Linux hosts, restrict access to your user only:
->
-> ```bash
-> chmod 700 data/config
-> # or restrict the entire data directory:
-> chmod 700 data
-> ```
-
----
-
-### 3. Start the Synchronization Daemon
-
-#### Option A: Using Docker Compose (Recommended)
-
-A pre-configured [docker-compose.yml](docker-compose.yml) is included in the repository (includes 30-second stop grace
-period and log rotation):
+The included Compose file defaults to UID/GID 1000:1000. If your IDs differ, edit the service's `user:` line
+in `docker-compose.yml` using the numeric values above, for example:
 
 ```yaml
-services:
-  yandex-disk:
-    image: yadisk/yandex-disk:latest
-    container_name: yandex-disk
-    restart: unless-stopped
-    stop_grace_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    volumes:
-      - ./data:/data
+user: "1001:1002"
 ```
 
-Start service:
+Existing files must be readable and writable by the selected user. Prepare permissions on the host; the container will
+not repair them. The configuration directory contains your OAuth token, so keep access restricted to its owner.
+
+### 2. Build and authenticate
+
+The repository Compose file builds the local image:
 
 ```bash
-docker compose up -d
-# or via Makefile:
+make build
+make setup
+```
+
+The setup wizard asks you to authorize in a browser. Use `/data/disk` as the synchronization directory, or accept
+`/home/yadisk/Yandex.Disk`, which links to it. Decline system autostart: Docker manages the process.
+Configuration and token are saved in `data/config`.
+
+Alternatively, obtain just the token without the setup wizard:
+
+```bash
+make token
+```
+
+The wrapper explicitly stores it in `/data/config/passwd`; no configuration file is required for foreground startup.
+
+### 3. Start synchronization
+
+```bash
 make up
-```
-
-View logs:
-
-```bash
-docker compose logs -f
-# or via Makefile:
+make status
 make logs
 ```
 
----
+`make logs` follows the output until you press Ctrl+C; this does not stop the service.
 
-#### Option B: Using `docker run`
+Authenticate before starting the service. With `restart: unless-stopped`, missing credentials will cause restart attempts
+until you configure the token or stop the service.
 
-With automatic UID/GID detection and unified volume mounting, the command is simple:
+To use a published image, replace both `build: .` and `image: yandex-disk:latest` in the Compose file with
+`image: yadisk/yandex-disk:latest` or `image: ghcr.io/albaranovsky/yandex-disk-docker:latest`. Then run `make pull`.
+
+## Using Docker directly
+
+Prepare `data/config` and `data/disk` as described above, then run:
 
 ```bash
-docker run -d \
-  --name yandex-disk \
-  --restart unless-stopped \
-  --stop-timeout 30 \
+docker run -it --rm --platform linux/amd64 \
+  --user "$(id -u):$(id -g)" \
+  -v "$(pwd)/data":/data \
+  yadisk/yandex-disk:latest yadisk token
+
+docker run -d --platform linux/amd64 \
+  --name yandex-disk --restart unless-stopped --stop-timeout 30 \
+  --user "$(id -u):$(id -g)" \
   -v "$(pwd)/data":/data \
   yadisk/yandex-disk:latest
 ```
 
-With directory exclusions and proxy:
+The same user must own the storage during authentication and synchronization. Two separate mounts are also supported:
 
-```bash
-docker run -d \
-  --name yandex-disk \
-  --restart unless-stopped \
-  --stop-timeout 30 \
-  -e EXCLUDE="tmp,Trash,Cache" \
-  -e PROXY="http://proxy.example.com:3128" \
-  -v "$(pwd)/data":/data \
-  yadisk/yandex-disk:latest
+```yaml
+volumes:
+  - ./config:/data/config
+  - ./disk:/data/disk
 ```
 
----
+Create both host directories with suitable permissions first.
 
-## Makefile Shortcuts
+## Commands
 
-A [Makefile](Makefile) is included for convenient everyday management:
-
-| Category            | Command          | Action                                            |
-| :------------------ | :--------------- | :------------------------------------------------ |
-| **Service Control** | `make up`        | Start daemon in background                        |
-|                     | `make down`      | Gracefully stop the daemon                        |
-|                     | `make restart`   | Restart the daemon                                |
-| **Operations**      | `make status`    | Check synchronization status (supports ARGS)      |
-|                     | `make sync`      | Trigger manual synchronization                    |
-|                     | `make publish`   | Publish file or folder (`FILE=path`)              |
-|                     | `make unpublish` | Revoke public link (`FILE=path`)                  |
-|                     | `make logs`      | Stream logs in real time                          |
-| **Authentication**  | `make setup`     | Run interactive authentication wizard             |
-|                     | `make token`     | Obtain OAuth authentication token directly        |
-| **Build & Test**    | `make build`     | Build Docker image                                |
-|                     | `make pull`      | Pull latest image from registry                   |
-|                     | `make test`      | Run automated integration test suite (IMAGE=...)  |
-|                     | `make lint`      | Lint Dockerfile and scripts (Hadolint/ShellCheck) |
-| **Debugging**       | `make shell`     | Open bash shell inside container                  |
-
----
-
-## Useful Commands
-
-To execute commands inside a running container, use the built-in `yadisk` CLI utility. It automatically passes
-configuration paths and drops privileges to the non-root user:
-
-Check synchronization status:
-
-```bash
-docker exec yandex-disk yadisk status
-# or via Makefile:
-make status
-```
-
-View last synchronized files:
+The `yadisk` wrapper supplies storage paths and preserves additional arguments:
 
 ```bash
 docker exec yandex-disk yadisk status --last
-```
-
-Trigger manual synchronization:
-
-```bash
 docker exec yandex-disk yadisk sync
-# or via Makefile:
-make sync
-```
-
-Obtain OAuth authentication token directly:
-
-```bash
-# In a running container:
-docker exec -it yandex-disk yadisk token
-
-# Or before starting the service (standalone):
-make token
-# or with docker run:
-docker run -it --rm -v "$(pwd)/data":/data yadisk/yandex-disk:latest yadisk token
-```
-
-Publish file or folder to get a public link:
-
-```bash
-docker exec yandex-disk yadisk publish "Photos/vacation.zip"
-```
-
-Revoke public link:
-
-```bash
-docker exec yandex-disk yadisk unpublish "Photos/vacation.zip"
-```
-
-Show CLI help:
-
-```bash
+docker exec yandex-disk yadisk publish "/data/disk/Photos/vacation.zip"
+docker exec yandex-disk yadisk unpublish "/data/disk/Photos/vacation.zip"
 docker exec yandex-disk yadisk help
 ```
 
----
+`docker exec` uses the configured container user. There is no automatic privilege drop if you explicitly select root.
+Use paths inside the container for file arguments and Make's `FILE`; the wrapper does not translate host paths or change
+the working directory to `/data/disk`.
 
-## Environment Variables
+`yadisk token /path/to/file` accepts a custom token output path. Default startup still checks and uses
+`/data/config/passwd`, so use `yadisk token` without a file argument for this service.
 
-| Variable  | Default           | Description                                                                                         |
-| :-------- | :---------------- | :-------------------------------------------------------------------------------------------------- |
-| `EXCLUDE` | `""`              | Comma-separated list of directories to exclude (e.g. `tmp,backup`)                                  |
-| `PROXY`   | `""`              | Proxy server settings (`http://...`, `socks5://...`, or format `TYPE,SERVER,PORT[,LOGIN,PASSWORD]`) |
-| `PUID`    | _(auto-detected)_ | Host user UID (detected from volume owner; override only if needed)                                 |
-| `PGID`    | _(auto-detected)_ | Host user GID (detected from volume owner; override only if needed)                                 |
+| Make target | Action |
+| --- | --- |
+| `make build` / `make pull` | Build locally / pull the configured registry image |
+| `make setup` / `make token` | Explicit authentication wizard / token only |
+| `make up` / `make down` / `make restart` | Manage the service |
+| `make status ARGS="--last"` / `make sync` | Inspect or trigger synchronization |
+| `make publish FILE="/data/disk/path"` / `make unpublish FILE="/data/disk/path"` | Manage public links |
+| `make logs` / `make shell` | Follow logs / open a shell |
+| `make test-unit` | Run script tests without Docker (Python 3.8+) |
+| `make test-integration` | Run container checks (requires a built image) |
+| `make test` / `make lint` | Run both test suites / container-based linters |
 
----
+## Synchronization options
 
-## Advanced Settings
+**Foreground mode (`--no-daemon`) ignores `config.cfg`.** Set daemon options through environment variables or CLI flags;
+the wrapper always supplies `/data/disk` and `/data/config/passwd` explicitly.
 
-### Read-Only Rootfs Mode
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `EXCLUDE` | empty | Passed only by `yadisk start`: comma-separated directories, e.g. `tmp,cache` |
+| `PROXY` | empty | Passed to all client commands: `auto`, `no`, or `protocol,host,port[,login,password]` |
 
-For hardened environments where containers cannot modify their own root filesystem, run with `read_only: true`:
+An empty variable adds no CLI option. The client's default proxy mode is `auto`.
 
-**Using Docker Compose:**
+For example, in Compose:
 
 ```yaml
-services:
-  yandex-disk:
-    image: yadisk/yandex-disk:latest
-    container_name: yandex-disk
-    restart: unless-stopped
-    stop_grace_period: 30s
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /run
-    volumes:
-      - ./data:/data
+environment:
+  EXCLUDE: tmp,cache
+  PROXY: https,proxy.example.com,3128
+command: ["yadisk", "start", "--read-only"]
 ```
 
-**Using `docker run`:**
+The client flag `--read-only` downloads from the cloud without changing server files. It is separate from Docker's
+read-only root filesystem. Other commands use `config.cfg` when it exists; additional arguments are passed to the client.
+For a standalone `yadisk sync` with exclusions, pass `--exclude-dirs=tmp,cache` explicitly or configure `config.cfg`;
+the `EXCLUDE` environment variable is not applied to that command.
+See the [official command reference](https://yandex.ru/support/yandex-360/customers/disk/desktop/linux/ru/cli-commands.html).
 
-```bash
-docker run -d \
-  --name yandex-disk \
-  --restart unless-stopped \
-  --stop-timeout 30 \
-  --read-only \
-  --tmpfs /tmp \
-  --tmpfs /run \
-  -v "$(pwd)/data":/data \
-  yadisk/yandex-disk:latest
+## Read-only rootfs
+
+The same user model works with a read-only root filesystem. Keep storage writable and add this to the Compose service:
+
+```yaml
+read_only: true
+tmpfs:
+  - /tmp
+  - /run
+security_opt:
+  - no-new-privileges:true
 ```
 
----
+This affects the container filesystem; it does not make synchronized host files read-only.
+
+## Migration from 2.x
+
+This is a breaking change to container startup:
+
+1. Remove `PUID` and `PGID` from the container environment. Nonempty legacy variables now produce a migration error.
+2. Set Compose `user: "UID:GID"` or Docker `--user UID:GID` to the existing storage owner's IDs.
+3. Ensure `config` and `disk` exist and the selected user can access them. Ownership is no longer changed automatically.
+4. Authenticate with `make setup` or `make token` if needed. Neither TTY detection nor waiting for authentication remains.
+
+Existing nonempty `data/config/passwd` tokens can be reused. Do not delete your configuration or synchronized files.
+Start still uses foreground mode, so pass exclusions and proxy settings through the environment or CLI.
 
 ## Testing
 
-The project includes an automated integration test suite ([tests/test.sh](tests/test.sh)) containing 15 test cases that
-validate:
-
-- CLI help banner and documentation of all commands (`status`, `sync`, `stop`, `start`, `setup`, `token`, `publish`,
-  `unpublish`)
-- Default non-root user permissions (`yadisk:1000`)
-- Dynamic host UID/GID mapping (`PUID`/`PGID`)
-- Direct unprivileged non-root mode (`--user 1001:1002`)
-- Read-Only Rootfs compatibility (`--read-only --tmpfs /tmp --tmpfs /run`)
-- Symlink integrity (`/home/yadisk/.config/yandex-disk`, `/home/yadisk/Yandex.Disk`, `/root/Yandex.Disk`, etc.)
-- Automatic storage directory initialization on volume mount (`/data/config` and `/data/disk`)
-- Split volume mounts support (`/data/config` and `/data/disk` as separate mount targets)
-- Graceful container shutdown on `SIGTERM` and crash-loop prevention
-- Unauthenticated status check behavior (`yadisk status`)
-- Daemon start flag preservation (`yadisk start --read-only`)
-- Daemon startup attempt when authentication token is present
-- Storage write permission check failure handling (`.yadisk_rw_test`)
-- Environment variables propagation (`EXCLUDE` and `PROXY`)
-
-Run the test suite locally:
-
 ```bash
-make test
+make test-unit
+make test-integration IMAGE=yandex-disk:latest
 ```
 
-Or test a specific image directly:
+Script tests use temporary storage and one fake client to check argument handling, exit codes, authentication errors,
+permissions, and preservation of existing files. The write-permission test is skipped when run as root.
+Container checks verify users, mounts, read-only rootfs, and signal forwarding through `tini`. Foreground argument and
+signal checks substitute a client; the official client is invoked for an unauthenticated status check. All automated
+tests run without an account; OAuth login and synchronization against a live account are not covered.
 
-```bash
-./tests/test.sh yadisk/yandex-disk:latest
-```
+## CI and releases
 
----
+CI runs Hadolint, ShellCheck, script tests, image build, container checks, and a Trivy scan with SARIF upload.
+Release tags matching `v*` trigger image publication to GHCR and, in the original repository, Docker Hub, followed by
+provenance attestation and an automatically generated GitHub Release. Docker Hub description updates also run on `main`;
+they do not publish a new image.
 
-## Supply Chain Security
+The upstream workflow checks the Yandex package version every Monday at 08:00 UTC and opens an update PR when it changes.
+Dependabot checks Docker and GitHub Actions dependencies weekly.
 
-All published container images include cryptographic SLSA Provenance and Software Bill of Materials (SBOM) attestations.
-
-Verify attestations and view build provenance using Docker Scout:
+## Supply chain verification
 
 ```bash
 docker scout attestation list yadisk/yandex-disk:latest
-```
-
-Or inspect raw OCI attestation manifests using Docker Buildx:
-
-```bash
 docker buildx imagetools inspect yadisk/yandex-disk:latest
-```
-
-Cryptographically verify build provenance via GitHub CLI:
-
-```bash
 gh attestation verify oci://ghcr.io/albaranovsky/yandex-disk-docker:latest --owner albaranovsky
 ```

@@ -7,6 +7,7 @@ services:
     # image: ghcr.io/albaranovsky/yandex-disk-docker:latest
     platform: linux/amd64
     container_name: yandex-disk
+    user: "1000:1000" # Set to the host storage owner's UID:GID
     restart: unless-stopped
     stop_grace_period: 30s # Time for graceful shutdown, sync state flush, and lock release
 
@@ -18,14 +19,10 @@ services:
 
     # environment:
     #   - EXCLUDE=temp,cache # Comma-separated list of folders to exclude
-    #   - PROXY=http://user:pass@host:port # or socks5://host:port
-    #   # PUID and PGID are auto-detected from the mounted folder on the host.
-    #   # Specify explicitly only if you need to override:
-    #   # - PUID=1000
-    #   # - PGID=1000
+    #   - PROXY=https,proxy.example.com,3128 # protocol,host,port[,login,password]
 
     volumes:
-      # Option 1: Unified storage (config and disk subfolders are created automatically)
+      # Prepare ./data/config and ./data/disk with permissions for the selected user
       - ./data:/data
       # Option 2: Split storage (uncomment if needed)
       # - ./config:/data/config
