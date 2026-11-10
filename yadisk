@@ -30,6 +30,11 @@ ARGS=()
 [ -z "${PROXY:-}" ] || ARGS+=(--proxy="$PROXY")
 
 if [ "$CMD" = "start" ]; then
+    for arg in "$@"; do
+        case "$arg" in
+            --help|-h) exec yandex-disk --help ;;
+        esac
+    done
     if [ ! -s "$CONFIG_DIR/passwd" ]; then
         echo "[!] Authentication token is missing or empty: $CONFIG_DIR/passwd. Run make setup or yadisk token first." >&2
         exit 1

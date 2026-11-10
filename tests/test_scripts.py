@@ -82,6 +82,20 @@ class ScriptsTest(unittest.TestCase):
                 self.assertIn('Run make setup', result.stderr)
                 self.assertFalse(self.log.exists())
 
+    def test_start_help_does_not_require_token_or_storage(self):
+        self.disk.rmdir()
+        for token in (None, '', 'dummy-token'):
+            if token is not None:
+                (self.config / 'passwd').write_text(token)
+            for flag in ('--help', '-h'):
+                for args in ((flag,), ('--read-only', flag), (flag, '--read-only')):
+                    with self.subTest(token=token, args=args):
+                        result = self.run_script('yadisk', 'start', *args,
+                                                 EXCLUDE='temp', PROXY='invalid-proxy')
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(result.stderr, '')
+                        self.assertEqual(json.loads(self.log.read_text()), ['--help'])
+
     def test_start_passes_foreground_options_and_preserves_files(self):
         self.authenticate()
         (self.config / 'config.cfg').write_text('ignored in foreground mode')
