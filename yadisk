@@ -40,8 +40,8 @@ if [ "$CMD" = "start" ]; then
         exit 1
     fi
     if [ ! -r "$CONFIG_DIR/passwd" ] || [ ! -d "$CONFIG_DIR" ] || [ ! -w "$CONFIG_DIR" ] || \
-       [ ! -d "$DATA_DIR" ] || [ ! -w "$DATA_DIR" ]; then
-        echo "[!] Storage is not accessible. Check token read access and write permissions for $CONFIG_DIR and $DATA_DIR on the host." >&2
+       [ ! -d "$DATA_DIR" ] || [ ! -w "$DATA_DIR" ] || [ ! -x "$DATA_DIR" ]; then
+        echo "[!] Storage is not accessible. Check token read access, write permissions for $CONFIG_DIR and $DATA_DIR, and directory search access for $DATA_DIR on the host." >&2
         exit 1
     fi
     ARGS+=(--dir="$DATA_DIR" --auth="$CONFIG_DIR/passwd" --no-daemon)

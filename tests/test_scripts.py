@@ -121,16 +121,18 @@ class ScriptsTest(unittest.TestCase):
         self.assertFalse(self.log.exists())
 
     @unittest.skipIf(os.geteuid() == 0, 'Root bypasses Unix write permissions')
-    def test_start_reports_unwritable_storage(self):
+    def test_start_reports_unwritable_or_unsearchable_storage(self):
         self.authenticate()
-        self.disk.chmod(0o555)
-        try:
-            result = self.run_script('yadisk', 'start')
-        finally:
-            self.disk.chmod(0o755)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn('Storage is not accessible', result.stderr)
-        self.assertFalse(self.log.exists())
+        for mode in (0o555, 0o666):
+            with self.subTest(mode=oct(mode)):
+                self.disk.chmod(mode)
+                try:
+                    result = self.run_script('yadisk', 'start')
+                finally:
+                    self.disk.chmod(0o755)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Storage is not accessible', result.stderr)
+                self.assertFalse(self.log.exists())
 
     def test_publish_preserves_paths_and_uses_saved_configuration(self):
         self.authenticate()
