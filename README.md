@@ -225,6 +225,10 @@ Container checks verify users, mounts, read-only rootfs, and signal forwarding t
 signal checks substitute a client; the official client is invoked for an unauthenticated status check. All automated
 tests run without an account; OAuth login and synchronization against a live account are not covered.
 
+Upstream updater tests run against temporary repository files and synthetic Debian package records without network
+access. They cover package selection, metadata validation, unchanged releases, unexpected hash changes, and literal
+version replacement.
+
 ## CI and releases
 
 CI runs Hadolint, ShellCheck, script tests, image build, container checks, and a Trivy scan with SARIF upload.
@@ -232,7 +236,10 @@ Release tags matching `v*` trigger image publication to GHCR and, in the origina
 provenance attestation and an automatically generated GitHub Release. In the original repository, the Docker Hub
 description is updated from the same release tag after a successful image push. Pushes to `main` do not update it.
 
-The upstream workflow checks the Yandex package version every Monday at 08:00 UTC and opens an update PR when it changes.
+The upstream workflow checks Yandex's package index every Monday at 08:00 UTC and opens an update PR when the version
+changes. It requires one `yandex-disk` amd64 record with a valid version and SHA256. A changed hash without a version
+change stops the workflow for manual review; it does not replace the expected hash automatically. Invalid tracked
+metadata also fails the check instead of being treated as a first update. ETag is not used.
 Dependabot checks Docker and GitHub Actions dependencies weekly.
 
 Both Docker base images are pinned by tag and multi-platform manifest digest. The existing Docker Dependabot group
