@@ -129,6 +129,11 @@ docker exec yandex-disk yadisk help
 Use paths inside the container for file arguments and Make's `FILE`; the wrapper does not translate host paths or change
 the working directory to `/data/disk`.
 
+Make's `FILE` is a literal path; pass it as one quoted shell argument, for example
+`make publish 'FILE=/data/disk/Photos/a"b.zip'`. Dollar signs and other special characters are preserved after the calling
+shell has processed your command. `ARGS` is a shell argument list for `make status`, intended for flags you supply yourself,
+such as `ARGS="--last"`.
+
 `yadisk token /path/to/file` accepts a custom token output path. Default startup still checks and uses
 `/data/config/passwd`, so use `yadisk token` without a file argument for this service.
 

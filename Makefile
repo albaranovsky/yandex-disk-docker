@@ -37,13 +37,17 @@ status: ## Show sync status (use ARGS="--last" for recent files)
 sync: ## Trigger manual synchronization
 	docker compose exec yandex-disk yadisk sync
 
+# Preserve FILE literally, including dollar signs, and pass it through the environment.
+override FILE := $(value FILE)
+export FILE
+
 publish: ## Publish file or folder (make publish FILE=path)
-	@test -n "$(FILE)" || { echo "Usage: make publish FILE=<path>"; exit 1; }
-	docker compose exec yandex-disk yadisk publish "$(FILE)"
+	@test -n "$${FILE}" || { echo "Usage: make publish FILE=<path>"; exit 1; }
+	docker compose exec yandex-disk yadisk publish "$${FILE}"
 
 unpublish: ## Revoke public link (make unpublish FILE=path)
-	@test -n "$(FILE)" || { echo "Usage: make unpublish FILE=<path>"; exit 1; }
-	docker compose exec yandex-disk yadisk unpublish "$(FILE)"
+	@test -n "$${FILE}" || { echo "Usage: make unpublish FILE=<path>"; exit 1; }
+	docker compose exec yandex-disk yadisk unpublish "$${FILE}"
 
 test: test-unit test-integration ## Run script and container tests (IMAGE=...)
 
