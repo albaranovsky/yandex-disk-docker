@@ -18,7 +18,8 @@ Docker image for the official **Yandex.Disk CLI v0.1.6.1081**, with persistent s
 - Authentication is explicit. Starting without a nonempty token exits with an error.
 - Runs synchronization in the foreground with `--no-daemon`; healthcheck uses `yadisk status`.
 - Supports read-only rootfs with writable storage and temporary directories.
-- Verifies the upstream package with SHA256; published images include SBOM and provenance attestations.
+- Downloads the upstream package from a version-specific URL and verifies SHA256; published images include SBOM and
+  provenance attestations.
 
 The image contains the amd64 client. Use `platform: linux/amd64` in Compose or `--platform linux/amd64` with Docker
 on another architecture (requires emulation).

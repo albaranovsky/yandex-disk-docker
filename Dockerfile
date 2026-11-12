@@ -4,8 +4,9 @@ ARG YADISK_SHA256=7970b3da0ad644f06f7b3ae4f0c69cc28d4730f95a0a02b7af2b58eb6000f9
 
 # --- Stage 1: Download package ---
 FROM curlimages/curl:8.22.0 AS downloader
+ARG YADISK_VERSION
 ARG YADISK_SHA256
-ARG YADISK_DEB_URL=https://repo.yandex.ru/yandex-disk/yandex-disk_latest_amd64.deb
+ARG YADISK_DEB_URL=https://repo.yandex.ru/yandex-disk/deb/pool/main/y/yandex-disk/yandex-disk_${YADISK_VERSION}_amd64.deb
 RUN curl -fsSL "${YADISK_DEB_URL}" -o /tmp/yandex-disk.deb && \
     printf '%s  %s\n' "${YADISK_SHA256}" /tmp/yandex-disk.deb > /tmp/checksum.txt && \
     sha256sum -c /tmp/checksum.txt && \
