@@ -34,6 +34,7 @@ class ScriptsTest(unittest.TestCase):
                         CLIENT_LOG=str(self.log), PUID='', PGID='', EXCLUDE='', PROXY='')
 
     def run_script(self, script, *args, **env):
+        self.log.unlink(missing_ok=True)
         return subprocess.run(['bash', str(self.base / script), *args],
                               env=dict(self.env, **env), stdin=subprocess.DEVNULL,
                               capture_output=True, text=True, timeout=5)
