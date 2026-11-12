@@ -55,18 +55,23 @@ jobs:
         run: make test-unit
 
   build:
+    # Preserve the existing check name for repository rules.
     name: Build & Push Docker Image
     needs: [lint, script-tests]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      packages: write
-      id-token: write
-      attestations: write
+      contents: read
       security-events: write
+    outputs:
+      image_fingerprint: ${{ steps.fingerprint.outputs.sha256 }}
+      # Reuse the producer's scope even when only the publish job is retried.
+      cache_scope: release-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -78,10 +83,11 @@ jobs:
           platforms: linux/amd64
           load: true
           tags: yandex-disk:test
-          # Refresh apt packages for releases; reuse this tested stage when pushing.
+          # Refresh apt packages for releases and export their cache to the publish job.
           no-cache-filters: ${{ startsWith(github.ref, 'refs/tags/v') && 'runtime' || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Isolate release caches by run and attempt; keep the shared cache for branches and PRs.
+          cache-to: type=gha,mode=max,scope=${{ startsWith(github.ref, 'refs/tags/v') && format('release-{0}-{1}', github.run_id, github.run_attempt) || 'buildkit' }}
 
       - name: Run automated tests
         run: |
@@ -103,23 +109,38 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-      - name: Log in to GitHub Container Registry
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Record tested image fingerprint
+        id: fingerprint
+        shell: bash
+        run: |
+          image_fingerprint=$(
+            docker image inspect yandex-disk:test |
+              jq -Sc '.[0] | {rootfs: .RootFS, config: (.Config | del(.Labels))}' |
+              sha256sum | cut -d ' ' -f 1
+          )
+          echo "sha256=$image_fingerprint" >> "$GITHUB_OUTPUT"
 
-      - name: Log in to Docker Hub
-        if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'albaranovsky/yandex-disk-docker'
-        uses: docker/login-action@v4
+  publish:
+    name: Publish Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v7
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Extract Docker metadata
-        if: startsWith(github.ref, 'refs/tags/v')
         id: meta
         uses: docker/metadata-action@v6
         with:
@@ -132,9 +153,47 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
 
+      - name: Prepare release image from tested cache
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: yandex-disk:release
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ needs.build.outputs.cache_scope }}
+
+      - name: Verify release image matches tested content
+        shell: bash
+        env:
+          EXPECTED_FINGERPRINT: ${{ needs.build.outputs.image_fingerprint }}
+        run: |
+          image_fingerprint=$(
+            docker image inspect yandex-disk:release |
+              jq -Sc '.[0] | {rootfs: .RootFS, config: (.Config | del(.Labels))}' |
+              sha256sum | cut -d ' ' -f 1
+          )
+          if [ "$image_fingerprint" != "$EXPECTED_FINGERPRINT" ]; then
+            echo "::error::Release image differs from tested filesystem or runtime configuration"
+            exit 1
+          fi
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: github.repository == 'albaranovsky/yandex-disk-docker'
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build and push Docker image
         id: push
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -142,12 +201,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
           provenance: mode=max
           sbom: true
 
       - name: Attest build provenance
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
@@ -155,7 +212,7 @@ jobs:
           push-to-registry: true
 
       - name: Update Docker Hub description
-        if: startsWith(github.ref, 'refs/tags/v') && github.repository == 'albaranovsky/yandex-disk-docker' && steps.push.outcome == 'success'
+        if: github.repository == 'albaranovsky/yandex-disk-docker' && steps.push.outcome == 'success'
         uses: peter-evans/dockerhub-description@v5
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -166,7 +223,6 @@ jobs:
           enable-url-completion: true
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
