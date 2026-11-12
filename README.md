@@ -240,6 +240,15 @@ The upstream workflow checks Yandex's package index every Monday at 08:00 UTC an
 changes. It requires one `yandex-disk` amd64 record with a valid version and SHA256. A changed hash without a version
 change stops the workflow for manual review; it does not replace the expected hash automatically. Invalid tracked
 metadata also fails the check instead of being treated as a first update. ETag is not used.
+
+Upstream PR creation uses the repository secret `AUTO_PR_TOKEN` when configured, otherwise the default `GITHUB_TOKEN`.
+With the default token, approve pending PR workflows using **Approve workflows to run** in the PR. For unattended CI
+triggering, set `AUTO_PR_TOKEN` to a personal access token authorized for this repository; a fine-grained token needs
+**Contents: read and write** and **Pull requests: read and write**. Repository and organization policies still apply.
+A GitHub App is another option, but its installation token must be generated for each run and passed to the PR action;
+storing an expiring installation token as a permanent secret is insufficient. Before merging an upstream PR, verify that
+**CI & Build** succeeded for its latest commit. See [GitHub's workflow triggering rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+
 Dependabot checks Docker and GitHub Actions dependencies weekly.
 
 Both Docker base images are pinned by tag and multi-platform manifest digest. The existing Docker Dependabot group

@@ -40,7 +40,9 @@ jobs:
             - **Package SHA256**: `${{ steps.check.outputs.new_sha256 }}`
             - **Upstream Repository**: `https://repo.yandex.ru/yandex-disk/`
 
-            The automated test suite will automatically run on this PR to ensure compatibility.
+            Before merging, verify that **CI & Build** has passed for the latest commit in this PR.
+            If this PR uses the default `GITHUB_TOKEN`, approve pending workflow runs with **Approve workflows to run**.
+            For unattended CI triggering, configure `AUTO_PR_TOKEN` as described in the repository README.
           branch: "update-yandex-disk-${{ steps.check.outputs.new_version }}"
           delete-branch: true
           labels: |
