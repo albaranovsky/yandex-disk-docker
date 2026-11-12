@@ -101,6 +101,17 @@ contains '<--exclude-dirs=dir1,dir2>'
 contains '<--proxy=https,proxy.local,8080>'
 contains '<--read-only>'
 
+echo 'Custom storage paths shared by entrypoint and wrapper'
+# Expand CONFIG_DIR inside the container, not on the host.
+# shellcheck disable=SC2016
+OUTPUT=$(run --user "$HOST_ID" --read-only --tmpfs /tmp --tmpfs /storage:mode=1777 \
+    -v "$TEMP_DIR/client:/usr/local/bin/yandex-disk:ro" \
+    -e 'CONFIG_DIR=/storage/custom config' -e 'DATA_DIR=/storage/custom disk' \
+    "$IMAGE" bash -c 'printf dummy-token > "$CONFIG_DIR/passwd"; exec yadisk start')
+contains '<--dir=/storage/custom disk>'
+contains '<--auth=/storage/custom config/passwd>'
+contains '<--no-daemon>'
+
 echo 'SIGTERM reaches the foreground client through tini'
 TEST_CONTAINER=$(docker run -d --platform "$PLATFORM" --user "$HOST_ID" \
     -v "$TEMP_DIR/config:/data/config" -v "$TEMP_DIR/disk:/data/disk" \

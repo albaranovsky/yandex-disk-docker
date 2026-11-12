@@ -135,7 +135,7 @@ shell has processed your command. `ARGS` is a shell argument list for `make stat
 such as `ARGS="--last"`.
 
 `yadisk token /path/to/file` accepts a custom token output path. Default startup still checks and uses
-`/data/config/passwd`, so use `yadisk token` without a file argument for this service.
+`$CONFIG_DIR/passwd` (`/data/config/passwd` by default), so use `yadisk token` without a file argument for this service.
 
 | Make target | Action |
 | --- | --- |
@@ -152,14 +152,21 @@ such as `ARGS="--last"`.
 ## Synchronization options
 
 **Foreground mode (`--no-daemon`) ignores `config.cfg`.** Set daemon options through environment variables or CLI flags;
-the wrapper always supplies `/data/disk` and `/data/config/passwd` explicitly.
+the wrapper supplies `DATA_DIR` and `$CONFIG_DIR/passwd` explicitly.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
+| `CONFIG_DIR` | `/data/config` | Container path for configuration and token; used by entrypoint and wrapper |
+| `DATA_DIR` | `/data/disk` | Container path for synchronized files; used by entrypoint and wrapper |
 | `EXCLUDE` | empty | Passed only by `yadisk start`: comma-separated directories, e.g. `tmp,cache` |
 | `PROXY` | empty | Passed to all client commands: `auto`, `no`, or `protocol,host,port[,login,password]` |
 
-An empty variable adds no CLI option. The client's default proxy mode is `auto`.
+Empty or unset `CONFIG_DIR` and `DATA_DIR` use their defaults. Use absolute paths inside the container and mount storage
+there with permissions for the selected user. Entrypoint creates these directories; `yadisk setup` explicitly supplies
+the configuration, token, and disk paths even on first use. The image's home-directory symlinks still point to the default
+`/data/config` and `/data/disk`; use `yadisk` commands when overriding storage paths.
+
+Empty `EXCLUDE` and `PROXY` add no CLI option. The client's default proxy mode is `auto`.
 
 For example, in Compose:
 
@@ -210,7 +217,8 @@ make test-unit
 make test-integration IMAGE=yandex-disk:latest
 ```
 
-Script tests use temporary storage and one fake client to check argument handling, exit codes, authentication errors,
+Script tests run the original shell scripts with temporary storage selected through `CONFIG_DIR` and `DATA_DIR`,
+and one fake client to check argument handling, exit codes, authentication errors,
 permissions, and preservation of existing files. The write-permission test is skipped when run as root.
 Container checks verify users, mounts, read-only rootfs, and signal forwarding through `tini`. Foreground argument and
 signal checks substitute a client; the official client is invoked for an unauthenticated status check. All automated

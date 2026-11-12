@@ -77,7 +77,13 @@ Set `EXCLUDE=tmp,cache`, `PROXY=https,proxy.example.com,3128`, or pass CLI argum
 Empty variables add no option; the client's default proxy mode is `auto`. Other commands use `config.cfg` when present.
 For standalone synchronization, pass exclusions explicitly with `yadisk sync --exclude-dirs=tmp,cache`.
 File arguments use paths inside the container; host paths are not translated.
-`yadisk token FILE` writes to the selected file, but default startup always checks and uses `/data/config/passwd`.
+`yadisk token FILE` writes to the selected file, but startup checks and uses `$CONFIG_DIR/passwd`
+(`/data/config/passwd` by default).
+
+Override `CONFIG_DIR` (default `/data/config`) and `DATA_DIR` (default `/data/disk`) with absolute container paths if needed.
+Mount writable storage at those paths. Empty or unset values use the defaults. Entrypoint creates the selected directories;
+the wrapper uses them for setup, token creation, synchronization, and management commands. Built-in home-directory symlinks
+retain the default paths, so use `yadisk` commands with custom storage paths.
 See the [official command reference](https://yandex.ru/support/yandex-360/customers/disk/desktop/linux/ru/cli-commands.html).
 
 Read-only rootfs is enabled with `--read-only`, writable storage, and `--tmpfs /tmp --tmpfs /run`. The container also supports

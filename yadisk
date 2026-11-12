@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -e
 
-CONFIG_DIR="/data/config"
-DATA_DIR="/data/disk"
+CONFIG_DIR="${CONFIG_DIR:-/data/config}"
+DATA_DIR="${DATA_DIR:-/data/disk}"
 
 if [ $# -eq 0 ] || [ "$1" = "help" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-    cat << 'EOF'
+    cat << EOF
 Usage: yadisk <command> [options]
 
 Commands:
   start [options]        Run synchronization in foreground (--no-daemon)
   setup                  Run the interactive setup wizard explicitly
-  token [file]           Obtain OAuth token (default: /data/config/passwd)
+  token [file]           Obtain OAuth token (default: $CONFIG_DIR/passwd)
   status                 Show synchronization status (supports --last)
   sync                   Trigger synchronization
   stop                   Stop synchronization
@@ -47,11 +47,15 @@ if [ "$CMD" = "start" ]; then
     ARGS+=(--dir="$DATA_DIR" --auth="$CONFIG_DIR/passwd" --no-daemon)
     [ -z "${EXCLUDE:-}" ] || ARGS+=(--exclude-dirs="$EXCLUDE")
 else
-    [ ! -f "$CONFIG_DIR/config.cfg" ] || ARGS+=(--config="$CONFIG_DIR/config.cfg")
+    if [ "$CMD" = "setup" ] || [ -f "$CONFIG_DIR/config.cfg" ]; then
+        ARGS+=(--config="$CONFIG_DIR/config.cfg")
+    fi
     case "$CMD" in
         status|sync|stop|setup|publish|unpublish)
             ARGS+=(--dir="$DATA_DIR")
-            [ ! -f "$CONFIG_DIR/passwd" ] || ARGS+=(--auth="$CONFIG_DIR/passwd")
+            if [ "$CMD" = "setup" ] || [ -f "$CONFIG_DIR/passwd" ]; then
+                ARGS+=(--auth="$CONFIG_DIR/passwd")
+            fi
             ;;
         token)
             [ $# -ne 0 ] || set -- "$CONFIG_DIR/passwd"

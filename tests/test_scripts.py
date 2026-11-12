@@ -15,8 +15,8 @@ class ScriptsTest(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix='yadisk-tests-')
         self.addCleanup(temporary.cleanup)
         self.base = Path(temporary.name)
-        self.config = self.base / 'data/config'
-        self.disk = self.base / 'data/disk'
+        self.config = self.base / 'custom storage/configuration'
+        self.disk = self.base / 'custom storage/files'
         self.bin = self.base / 'bin'
         for path in (self.config, self.disk, self.bin):
             path.mkdir(parents=True)
@@ -27,15 +27,13 @@ class ScriptsTest(unittest.TestCase):
                           'pathlib.Path(os.environ["CLIENT_LOG"]).write_text(json.dumps(sys.argv[1:]))\n'
                           'sys.exit(int(os.environ.get("CLIENT_EXIT", "0")))\n')
         client.chmod(0o755)
-        for name in ('entrypoint.sh', 'yadisk'):
-            text = (ROOT / name).read_text().replace('/data', str(self.base / 'data'))
-            (self.base / name).write_text(text)
         self.env = dict(os.environ, PATH=str(self.bin) + ':' + os.environ['PATH'],
+                        CONFIG_DIR=str(self.config), DATA_DIR=str(self.disk),
                         CLIENT_LOG=str(self.log), PUID='', PGID='', EXCLUDE='', PROXY='')
 
     def run_script(self, script, *args, **env):
         self.log.unlink(missing_ok=True)
-        return subprocess.run(['bash', str(self.base / script), *args],
+        return subprocess.run(['bash', str(ROOT / script), *args],
                               env=dict(self.env, **env), stdin=subprocess.DEVNULL,
                               capture_output=True, text=True, timeout=5)
 
@@ -71,6 +69,7 @@ class ScriptsTest(unittest.TestCase):
         result = self.run_script('yadisk', '--help')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Usage: yadisk', result.stdout)
+        self.assertIn('default: ' + str(self.config / 'passwd'), result.stdout)
         self.assertFalse(self.log.exists())
 
     def test_start_requires_nonempty_token_and_exits_immediately(self):
@@ -152,7 +151,9 @@ class ScriptsTest(unittest.TestCase):
     def test_setup_is_explicit_and_propagates_failure(self):
         result = self.run_script('yadisk', 'setup', CLIENT_EXIT='7')
         self.assertEqual(result.returncode, 7)
-        self.assertEqual(json.loads(self.log.read_text()), ['--dir=' + str(self.disk), 'setup'])
+        self.assertEqual(json.loads(self.log.read_text()), [
+            '--config=' + str(self.config / 'config.cfg'), '--dir=' + str(self.disk),
+            '--auth=' + str(self.config / 'passwd'), 'setup'])
 
     def test_unknown_command_is_forwarded(self):
         result = self.run_script('yadisk', '--version')
