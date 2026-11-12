@@ -33,16 +33,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Lint Dockerfile with Hadolint
-        uses: hadolint/hadolint-action@v3.5.0
-        with:
-          dockerfile: Dockerfile
-          failure-threshold: warning
-
-      - name: Lint shell scripts with ShellCheck
-        uses: ludeeus/action-shellcheck@2.0.0
-        with:
-          scandir: '.'
+      - name: Lint workflows, Dockerfile, and shell scripts
+        run: make lint
 
   script-tests:
     name: Test Shell Script Behavior

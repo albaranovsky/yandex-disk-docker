@@ -57,8 +57,9 @@ test-unit: ## Test shell script behavior without Docker (requires Python 3.8+)
 test-integration: ## Run Docker integration tests (IMAGE=...)
 	./tests/test.sh $(IMAGE)
 
-lint: ## Lint Dockerfile and shell scripts with Hadolint and ShellCheck
-	docker run --rm -i hadolint/hadolint:latest < Dockerfile
+lint: ## Lint Dockerfile, shell scripts, and GitHub Actions workflows
+	docker run --rm --network none -v "$$(pwd):/repo:ro" -w /repo rhysd/actionlint:latest
+	docker run --rm -i hadolint/hadolint:latest hadolint --failure-threshold warning - < Dockerfile
 	docker run --rm -v "$$(pwd):/mnt" -w /mnt koalaman/shellcheck:stable entrypoint.sh yadisk tests/test.sh
 
 logs: ## Follow daemon logs

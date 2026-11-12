@@ -231,7 +231,10 @@ version replacement.
 
 ## CI and releases
 
-CI runs Hadolint, ShellCheck, script tests, image build, container checks, and a Trivy scan with SARIF upload.
+CI runs Actionlint, Hadolint, ShellCheck, script tests, image build, container checks, and a Trivy scan with SARIF upload.
+CI and local checks both use `make lint`, which runs the three linters from Docker images. Hadolint fails on warnings
+and errors. Actionlint uses the author's Docker image.
+The checker scans all workflow files, validates expressions and job dependencies, and checks embedded shell commands.
 The build job has repository read access and `security-events: write` for SARIF reporting. Registry publication,
 release creation, and attestation permissions belong to a separate `publish` job, which runs only for release tags
 after the build job succeeds. The existing build check name is retained for repository rules.
