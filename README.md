@@ -235,6 +235,19 @@ description is updated from the same release tag after a successful image push. 
 The upstream workflow checks the Yandex package version every Monday at 08:00 UTC and opens an update PR when it changes.
 Dependabot checks Docker and GitHub Actions dependencies weekly.
 
+Both Docker base images are pinned by tag and multi-platform manifest digest. The existing Docker Dependabot group
+proposes updates to these references, including new digests for an unchanged tag. Review the PR, require successful CI,
+inspect the Trivy report, and merge before publishing the next stable release. Dependency-only fixes normally use a
+patch release; merging the PR alone does not update published images or `latest`.
+
+For urgent OS fixes, check for a newer base digest and update it through a PR without waiting for the weekly check.
+On release tags, CI rebuilds the runtime stage without its cache to refresh packages installed by `apt`, even when the
+base digest is unchanged. This image passes the container tests and Trivy scan before the publish step reuses the build
+cache. Normal branch and PR builds retain caching. To verify the release build locally, use
+`docker build --no-cache-filter runtime --platform linux/amd64 -t yandex-disk:os-update .`.
+Pinned base images do not freeze Debian's package repositories: clean builds can still resolve different `apt` package
+versions. Byte-for-byte reproducibility is not guaranteed.
+
 ## Supply chain verification
 
 ```bash

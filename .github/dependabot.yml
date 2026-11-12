@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Maintain Docker dependencies
+  # Maintain Docker base image tags and pinned digests
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
