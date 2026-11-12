@@ -56,10 +56,12 @@ jobs:
               sed -i "s/$CURRENT_VERSION/$UPSTREAM_VERSION/g" README.md DOCKERHUB.md
             fi
 
-            echo "has_update=true" >> "$GITHUB_OUTPUT"
-            echo "old_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
-            echo "new_version=$UPSTREAM_VERSION" >> "$GITHUB_OUTPUT"
-            echo "new_sha256=$UPSTREAM_SHA256" >> "$GITHUB_OUTPUT"
+            {
+              echo "has_update=true"
+              echo "old_version=$CURRENT_VERSION"
+              echo "new_version=$UPSTREAM_VERSION"
+              echo "new_sha256=$UPSTREAM_SHA256"
+            } >> "$GITHUB_OUTPUT"
           else
             echo "Repository is up to date with upstream."
             echo "has_update=false" >> "$GITHUB_OUTPUT"

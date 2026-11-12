@@ -228,8 +228,8 @@ tests run without an account; OAuth login and synchronization against a live acc
 
 CI runs Hadolint, ShellCheck, script tests, image build, container checks, and a Trivy scan with SARIF upload.
 Release tags matching `v*` trigger image publication to GHCR and, in the original repository, Docker Hub, followed by
-provenance attestation and an automatically generated GitHub Release. Docker Hub description updates also run on `main`;
-they do not publish a new image.
+provenance attestation and an automatically generated GitHub Release. In the original repository, the Docker Hub
+description is updated from the same release tag after a successful image push. Pushes to `main` do not update it.
 
 The upstream workflow checks the Yandex package version every Monday at 08:00 UTC and opens an update PR when it changes.
 Dependabot checks Docker and GitHub Actions dependencies weekly.
