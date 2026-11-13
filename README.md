@@ -237,7 +237,9 @@ and errors. Actionlint uses the author's Docker image.
 The checker scans all workflow files, validates expressions and job dependencies, and checks embedded shell commands.
 The build job has repository read access and `security-events: write` for SARIF reporting. Registry publication,
 release creation, and attestation permissions belong to a separate `publish` job, which runs only for release tags
-after the build job succeeds. The existing build check name is retained for repository rules.
+after the build job succeeds. It builds the release image, reruns container checks, and scans it with Trivy before
+registry login and publication. The release scan is printed in the job log; SARIF upload remains in the build job.
+Both scans are report-only. The existing build check name is retained for repository rules.
 Release tags matching `v*` trigger image publication to GHCR and, in the original repository, Docker Hub, followed by
 provenance attestation and an automatically generated GitHub Release. In the original repository, the Docker Hub
 description is updated from the same release tag after a successful image push. Pushes to `main` do not update it.
@@ -264,11 +266,9 @@ patch release; merging the PR alone does not update published images or `latest`
 
 For urgent OS fixes, check for a newer base digest and update it through a PR without waiting for the weekly check.
 On release tags, CI rebuilds the runtime stage without its cache to refresh packages installed by `apt`, even when the
-base digest is unchanged. The tested cache is exported under a scope unique to the producing run and attempt.
-The publish job imports that scope, prepares an image with release labels, and checks a SHA256 fingerprint of its
-filesystem layers and runtime configuration against the tested image before registry login or push. Labels are excluded
-from the fingerprint because release metadata is added at publication. A mismatch stops publication. The final push
-reuses the verified local builder cache and adds SBOM/provenance; this is not a comparison of final manifest digests.
+base digest is unchanged. This refresh happens in the publish job, which builds the image with release labels and
+tests and scans it on the same runner. The final push reuses that local builder cache and adds SBOM/provenance.
+The shared GitHub Actions cache speeds up builds; no image fingerprints or cache scopes are passed between jobs.
 Normal branch and PR builds retain caching. To verify the release build locally, use
 `docker build --no-cache-filter runtime --platform linux/amd64 -t yandex-disk:os-update .`.
 Pinned base images do not freeze Debian's package repositories: clean builds can still resolve different `apt` package
