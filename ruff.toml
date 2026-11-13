@@ -1,0 +1,13 @@
+line-length = 120
+target-version = "py38"
+output-format = "concise"
+
+[format]
+quote-style = "single"
+skip-magic-trailing-comma = false
+
+[lint]
+exclude = ["var"]
+
+[lint.flake8-quotes]
+inline-quotes = "single"

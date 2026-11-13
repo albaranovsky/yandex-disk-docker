@@ -1,11 +1,12 @@
 """Exercise upstream metadata updates in temporary repository files without network access."""
+
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / '.github/scripts/check_upstream.py'
@@ -22,22 +23,25 @@ class UpstreamTest(unittest.TestCase):
         self.tracked = json.loads((self.base / '.upstream.json').read_text())
         self.output = self.base / 'github-output'
 
-    def index(self, version='0.1.6.9999', sha256='a' * 64,
-              package='yandex-disk', architecture='amd64'):
-        fields = {'Package': package, 'Version': version,
-                  'Architecture': architecture, 'SHA256': sha256}
-        return '\n'.join(name + ': ' + value for name, value in fields.items()
-                         if value is not None) + '\n\n'
+    def index(self, version='0.1.6.9999', sha256='a' * 64, package='yandex-disk', architecture='amd64'):
+        fields = {'Package': package, 'Version': version, 'Architecture': architecture, 'SHA256': sha256}
+        return '\n'.join(name + ': ' + value for name, value in fields.items() if value is not None) + '\n\n'
 
     def snapshot(self):
-        return {name: (self.base / name).read_bytes() if (self.base / name).exists() else None
-                for name in FILES}
+        return {name: (self.base / name).read_bytes() if (self.base / name).exists() else None for name in FILES}
 
     def run_update(self, index):
         self.output.unlink(missing_ok=True)
-        return subprocess.run([sys.executable, str(SCRIPT)], cwd=self.base, input=index,
-                              env=dict(os.environ, GITHUB_OUTPUT=str(self.output)),
-                              capture_output=True, text=True, timeout=5)
+        return subprocess.run(
+            [sys.executable, str(SCRIPT)],
+            cwd=self.base,
+            input=index,
+            env=dict(os.environ, GITHUB_OUTPUT=str(self.output)),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
 
     def assert_rejected(self, index, message):
         before = self.snapshot()
@@ -53,13 +57,18 @@ class UpstreamTest(unittest.TestCase):
         for name in ('README.md', 'DOCKERHUB.md'):
             with (self.base / name).open('a') as document:
                 document.write('\nPreserve: ' + sentinel + '\n')
-        index = (self.index(package='other-package') +
-                 self.index(package='yandex-disk-extra') +
-                 self.index(architecture='i386') + self.index())
+        index = (
+            self.index(package='other-package')
+            + self.index(package='yandex-disk-extra')
+            + self.index(architecture='i386')
+            + self.index()
+        )
         result = self.run_update(index)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads((self.base / '.upstream.json').read_text()),
-                         {'package': 'yandex-disk', 'version': '0.1.6.9999', 'sha256': 'a' * 64})
+        self.assertEqual(
+            json.loads((self.base / '.upstream.json').read_text()),
+            {'package': 'yandex-disk', 'version': '0.1.6.9999', 'sha256': 'a' * 64},
+        )
         dockerfile = (self.base / 'Dockerfile').read_text()
         self.assertIn('ARG YADISK_VERSION=0.1.6.9999\n', dockerfile)
         self.assertIn('ARG YADISK_SHA256=' + 'a' * 64 + '\n', dockerfile)
@@ -69,9 +78,10 @@ class UpstreamTest(unittest.TestCase):
             self.assertNotIn(old_version, contents)
             self.assertIn('0.1.6.9999', contents)
             self.assertIn(sentinel, contents)
-        self.assertEqual(dict(line.split('=', 1) for line in self.output.read_text().splitlines()),
-                         {'has_update': 'true', 'old_version': old_version,
-                          'new_version': '0.1.6.9999', 'new_sha256': 'a' * 64})
+        self.assertEqual(
+            dict(line.split('=', 1) for line in self.output.read_text().splitlines()),
+            {'has_update': 'true', 'old_version': old_version, 'new_version': '0.1.6.9999', 'new_sha256': 'a' * 64},
+        )
 
     def test_unchanged_version_and_hash_leave_repository_untouched(self):
         before = self.snapshot()
@@ -81,12 +91,15 @@ class UpstreamTest(unittest.TestCase):
         self.assertEqual(self.output.read_text(), 'has_update=false\n')
 
     def test_changed_hash_without_version_change_is_rejected(self):
-        self.assert_rejected(self.index(version=self.tracked['version']),
-                             'SHA256 changed without a version change')
+        self.assert_rejected(self.index(version=self.tracked['version']), 'SHA256 changed without a version change')
 
     def test_missing_or_ambiguous_package_is_rejected(self):
-        for index in ('', self.index(package='other-package'), self.index(architecture='i386'),
-                      self.index() + self.index(version='0.1.6.9998')):
+        for index in (
+            '',
+            self.index(package='other-package'),
+            self.index(architecture='i386'),
+            self.index() + self.index(version='0.1.6.9998'),
+        ):
             with self.subTest(index=index):
                 self.assert_rejected(index, 'Expected exactly one yandex-disk amd64 record')
 
@@ -107,8 +120,7 @@ class UpstreamTest(unittest.TestCase):
     def test_invalid_dockerfile_assignments_are_rejected_before_any_changes(self):
         original = (ROOT / 'Dockerfile').read_text()
         assignment = 'ARG YADISK_VERSION=' + self.tracked['version']
-        for contents in (original.replace(assignment, 'ARG YADISK_VERSION'),
-                         original + '\n' + assignment + '\n'):
+        for contents in (original.replace(assignment, 'ARG YADISK_VERSION'), original + '\n' + assignment + '\n'):
             with self.subTest(contents=contents):
                 (self.base / 'Dockerfile').write_text(contents)
                 self.assert_rejected(self.index(), 'Expected exactly one ARG YADISK_VERSION=')

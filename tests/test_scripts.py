@@ -1,11 +1,12 @@
 """Run shell scripts against temporary storage and a fake Yandex.Disk client."""
+
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,20 +23,36 @@ class ScriptsTest(unittest.TestCase):
             path.mkdir(parents=True)
         self.log = self.base / 'args.json'
         client = self.bin / 'yandex-disk'
-        client.write_text('#!' + sys.executable + '\n'
-                          'import json, os, pathlib, sys\n'
-                          'pathlib.Path(os.environ["CLIENT_LOG"]).write_text(json.dumps(sys.argv[1:]))\n'
-                          'sys.exit(int(os.environ.get("CLIENT_EXIT", "0")))\n')
+        client.write_text(
+            '#!' + sys.executable + '\n'
+            'import json, os, pathlib, sys\n'
+            'pathlib.Path(os.environ["CLIENT_LOG"]).write_text(json.dumps(sys.argv[1:]))\n'
+            'sys.exit(int(os.environ.get("CLIENT_EXIT", "0")))\n'
+        )
         client.chmod(0o755)
-        self.env = dict(os.environ, PATH=str(self.bin) + ':' + os.environ['PATH'],
-                        CONFIG_DIR=str(self.config), DATA_DIR=str(self.disk),
-                        CLIENT_LOG=str(self.log), PUID='', PGID='', EXCLUDE='', PROXY='')
+        self.env = dict(
+            os.environ,
+            PATH=str(self.bin) + ':' + os.environ['PATH'],
+            CONFIG_DIR=str(self.config),
+            DATA_DIR=str(self.disk),
+            CLIENT_LOG=str(self.log),
+            PUID='',
+            PGID='',
+            EXCLUDE='',
+            PROXY='',
+        )
 
     def run_script(self, script, *args, **env):
         self.log.unlink(missing_ok=True)
-        return subprocess.run(['bash', str(ROOT / script), *args],
-                              env=dict(self.env, **env), stdin=subprocess.DEVNULL,
-                              capture_output=True, text=True, timeout=5)
+        return subprocess.run(
+            ['bash', str(ROOT / script), *args],
+            env=dict(self.env, **env),
+            stdin=subprocess.DEVNULL,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
 
     def authenticate(self):
         (self.config / 'passwd').write_text('dummy-token')
@@ -90,8 +107,7 @@ class ScriptsTest(unittest.TestCase):
             for flag in ('--help', '-h'):
                 for args in ((flag,), ('--read-only', flag), (flag, '--read-only')):
                     with self.subTest(token=token, args=args):
-                        result = self.run_script('yadisk', 'start', *args,
-                                                 EXCLUDE='temp', PROXY='invalid-proxy')
+                        result = self.run_script('yadisk', 'start', *args, EXCLUDE='temp', PROXY='invalid-proxy')
                         self.assertEqual(result.returncode, 0, result.stderr)
                         self.assertEqual(result.stderr, '')
                         self.assertEqual(json.loads(self.log.read_text()), ['--help'])
@@ -101,13 +117,28 @@ class ScriptsTest(unittest.TestCase):
         (self.config / 'config.cfg').write_text('ignored in foreground mode')
         sentinel = self.disk / '.yadisk_rw_test'
         sentinel.write_text('keep me')
-        result = self.run_script('yadisk', 'start', '--read-only', '--overwrite',
-                                 EXCLUDE='a,b', PROXY='https,proxy.local,8080', CLIENT_EXIT='7')
+        result = self.run_script(
+            'yadisk',
+            'start',
+            '--read-only',
+            '--overwrite',
+            EXCLUDE='a,b',
+            PROXY='https,proxy.local,8080',
+            CLIENT_EXIT='7',
+        )
         self.assertEqual(result.returncode, 7, result.stderr)
-        self.assertEqual(json.loads(self.log.read_text()), [
-            '--proxy=https,proxy.local,8080', '--dir=' + str(self.disk),
-            '--auth=' + str(self.config / 'passwd'), '--no-daemon',
-            '--exclude-dirs=a,b', '--read-only', '--overwrite'])
+        self.assertEqual(
+            json.loads(self.log.read_text()),
+            [
+                '--proxy=https,proxy.local,8080',
+                '--dir=' + str(self.disk),
+                '--auth=' + str(self.config / 'passwd'),
+                '--no-daemon',
+                '--exclude-dirs=a,b',
+                '--read-only',
+                '--overwrite',
+            ],
+        )
         self.assertEqual(sentinel.read_text(), 'keep me')
         self.assertEqual(list(self.disk.iterdir()), [sentinel])
 
@@ -139,9 +170,16 @@ class ScriptsTest(unittest.TestCase):
         (self.config / 'config.cfg').touch()
         result = self.run_script('yadisk', 'publish', 'Photos/a file.zip')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(self.log.read_text()), [
-            '--config=' + str(self.config / 'config.cfg'), '--dir=' + str(self.disk),
-            '--auth=' + str(self.config / 'passwd'), 'publish', 'Photos/a file.zip'])
+        self.assertEqual(
+            json.loads(self.log.read_text()),
+            [
+                '--config=' + str(self.config / 'config.cfg'),
+                '--dir=' + str(self.disk),
+                '--auth=' + str(self.config / 'passwd'),
+                'publish',
+                'Photos/a file.zip',
+            ],
+        )
 
     def test_token_has_explicit_default_path_and_accepts_custom_path(self):
         for supplied, expected in (([], str(self.config / 'passwd')), (['a token'], 'a token')):
@@ -153,9 +191,15 @@ class ScriptsTest(unittest.TestCase):
     def test_setup_is_explicit_and_propagates_failure(self):
         result = self.run_script('yadisk', 'setup', CLIENT_EXIT='7')
         self.assertEqual(result.returncode, 7)
-        self.assertEqual(json.loads(self.log.read_text()), [
-            '--config=' + str(self.config / 'config.cfg'), '--dir=' + str(self.disk),
-            '--auth=' + str(self.config / 'passwd'), 'setup'])
+        self.assertEqual(
+            json.loads(self.log.read_text()),
+            [
+                '--config=' + str(self.config / 'config.cfg'),
+                '--dir=' + str(self.disk),
+                '--auth=' + str(self.config / 'passwd'),
+                'setup',
+            ],
+        )
 
     def test_unknown_command_is_forwarded(self):
         result = self.run_script('yadisk', '--version')
