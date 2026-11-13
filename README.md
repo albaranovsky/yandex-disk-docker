@@ -222,8 +222,37 @@ Script tests run the original shell scripts with temporary storage selected thro
 and one fake client to check argument handling, exit codes, authentication errors,
 permissions, and preservation of existing files. The write-permission test is skipped when run as root.
 Container checks verify users, mounts, read-only rootfs, and signal forwarding through `tini`. Foreground argument and
-signal checks substitute a client; the official client is invoked for an unauthenticated status check. All automated
-tests run without an account; OAuth login and synchronization against a live account are not covered.
+signal checks substitute a client; the official client is invoked for an unauthenticated status check.
+The default test suite and CI run without an account.
+
+For an opt-in local test of real synchronization, first obtain a client `passwd` file for a dedicated test account:
+
+```bash
+YADISK_AUTH_FILE=/absolute/path/to/passwd make test-live IMAGE=yandex-disk:latest
+```
+
+To save the path, add it to `.env` at the repository root (ignored by Git):
+
+```dotenv
+YADISK_AUTH_FILE=/absolute/path/to/passwd
+```
+
+Then run `make test-live IMAGE=yandex-disk:latest`. Precedence is `--auth-file`, environment variable, then `.env`.
+The test reads only `YADISK_AUTH_FILE` from `.env`; use a plain path or wrap it in matching single/double quotes.
+Relative paths from `.env` are resolved from the repository root; `~` is supported. Shell expressions and variable
+interpolation are not evaluated. Store the path in `.env`, not the authorization file's contents.
+
+This test writes to the cloud account. Use a dedicated account: both clients may download its other contents.
+It copies the authorization file into two temporary Docker volumes and starts clients as `1000:1000` and
+`23456:23456` (verified absent from the image's user/group databases). It checks file contents in both directions,
+graceful shutdown, and synchronization after recreating a container with its original volume. No REST API token is needed.
+Only a uniquely named `yadisk-live-...` cloud folder is created and deleted. On success, deletion is confirmed through
+the other client; on failure or interruption, the folder may remain and its name is reported for manual cleanup.
+Test containers and volumes are removed on exit. The source authorization file is not modified or printed.
+Root is used only to prepare new volumes; both synchronization clients run unprivileged.
+This test is excluded from `make test` and CI; interactive token acquisition and `setup` still need a manual check.
+Each wait and Docker operation has a timeout; to override the default 300 seconds, run
+`python3 tests/live_sync.py --image yandex-disk:latest --auth-file /path/to/passwd --timeout 600`.
 
 Upstream updater tests run against temporary repository files and synthetic Debian package records without network
 access. They cover package selection, metadata validation, unchanged releases, unexpected hash changes, and literal

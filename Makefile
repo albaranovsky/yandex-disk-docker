@@ -2,7 +2,7 @@
 
 IMAGE ?= yandex-disk:latest
 
-.PHONY: help build pull setup token up down restart status sync publish unpublish test test-unit test-integration lint logs shell
+.PHONY: help build pull setup token up down restart status sync publish unpublish test test-unit test-integration test-live lint logs shell
 
 help: ## Show help message
 	@echo "Usage: make [target]"
@@ -56,6 +56,9 @@ test-unit: ## Test shell script behavior without Docker (requires Python 3.8+)
 
 test-integration: ## Run Docker integration tests (IMAGE=...)
 	./tests/test.sh $(IMAGE)
+
+test-live: ## Test real cloud sync locally (YADISK_AUTH_FILE=..., dedicated account)
+	python3 tests/live_sync.py --image '$(IMAGE)'
 
 lint: ## Lint Dockerfile, shell scripts, and GitHub Actions workflows
 	docker run --rm --network none -v "$$(pwd):/repo:ro" -w /repo rhysd/actionlint:latest
