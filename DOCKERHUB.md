@@ -24,6 +24,7 @@ docker run -it --rm --platform linux/amd64 \
 ```
 
 Open the authorization link and follow the terminal instructions. The token is saved to `data/config/passwd`.
+When moving existing authorization, preserve both `passwd` and `iid` from the same configuration directory.
 Keep this directory private. The container does not change ownership or permissions of host files.
 
 ## Start synchronization

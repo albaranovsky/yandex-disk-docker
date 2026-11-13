@@ -1,35 +1,38 @@
 """Opt-in local synchronization test using a dedicated Yandex.Disk account."""
 
 import argparse
+import io
 import json
 import os
 import subprocess
 import sys
+import tarfile
 import time
 import uuid
 from pathlib import Path
 
 
-def auth_file_from_env(path):
-    """Read only YADISK_AUTH_FILE; do not execute or expand .env contents."""
+def auth_dir_from_env(path):
+    """Read only YADISK_AUTH_DIR; do not execute or expand .env contents."""
     if not path.exists():
         return None
     for line in path.read_text().splitlines():
         key, separator, value = line.partition('=')
-        if separator and key.strip() == 'YADISK_AUTH_FILE':
+        if separator and key.strip() == 'YADISK_AUTH_DIR':
             value = value.strip()
             if value.startswith(('"', "'")):
                 if len(value) < 2 or value[-1] != value[0]:
-                    raise ValueError('Unclosed quote for YADISK_AUTH_FILE in .env')
+                    raise ValueError('Unclosed quote for YADISK_AUTH_DIR in .env')
                 value = value[1:-1]
             return str(path.parent / Path(value).expanduser()) if value else ''
     return None
 
 
 class LiveSync:
-    def __init__(self, image, auth, timeout):
+    def __init__(self, image, auth, timeout, iid):
         self.image = image
         self.auth = auth
+        self.iid = iid
         self.timeout = timeout
         self.prefix = 'yadisk-live-' + uuid.uuid4().hex
         self.folder = '/data/disk/' + self.prefix
@@ -54,6 +57,7 @@ class LiveSync:
     def wait(self, description, condition):
         print(description, flush=True)
         deadline = time.monotonic() + self.timeout
+        next_report = 0
         while time.monotonic() < deadline:
             for name in self.containers:
                 peer = name.rsplit('-', 1)[1]
@@ -61,8 +65,18 @@ class LiveSync:
                     raise RuntimeError('Client stopped unexpectedly: ' + peer)
             if condition():
                 return
+            if time.monotonic() >= next_report:
+                self.report_status()
+                next_report = time.monotonic() + 15
             time.sleep(1)
+        self.report_status()
         raise RuntimeError('Timed out: ' + description)
+
+    def report_status(self):
+        # Report only the core state, never filenames, account details or logs.
+        for name in self.containers:
+            peer = name.rsplit('-', 1)[1]
+            print(f'  Client {peer.upper()}: {self.core_status(peer)}', flush=True)
 
     def start(self, peer, user):
         name = self.prefix + '-' + peer
@@ -76,6 +90,8 @@ class LiveSync:
             name,
             '--user',
             user,
+            '--env',
+            'LC_ALL=C',
             '--mount',
             'type=volume,src=' + name + ',dst=/data',
             self.image,
@@ -85,6 +101,13 @@ class LiveSync:
         volume = self.prefix + '-' + peer
         self.docker('volume', 'create', volume)
         self.volumes.append(volume)
+        payload = io.BytesIO()
+        with tarfile.open(fileobj=payload, mode='w') as archive:
+            for name, contents in (('passwd', self.auth), ('iid', self.iid)):
+                entry = tarfile.TarInfo(name)
+                entry.size = len(contents)
+                entry.mode = 0o600
+                archive.addfile(entry, io.BytesIO(contents))
         # Root only prepares our new Docker volume; the client runs unprivileged.
         self.docker(
             'run',
@@ -101,16 +124,32 @@ class LiveSync:
             self.image,
             '-c',
             'set -e; mkdir -p /data/config /data/disk; '
-            'chmod 700 /data/config; umask 077; cat > /data/config/passwd; '
+            'chmod 700 /data/config; tar -xf - -C /data/config; '
             'chown -R "$1" /data',
             'live-sync',
             user,
-            data=self.auth,
+            data=payload.getvalue(),
         )
 
+    def client_status(self, peer):
+        result = self.docker('exec', '-e', 'LC_ALL=C', self.prefix + '-' + peer, 'yadisk', 'status', check=False)
+        if result.returncode:
+            return f'status unavailable (exit {result.returncode})', False
+        lines = result.stdout.decode(errors='replace').splitlines()
+        quota_received = any(line.strip().startswith('Total:') for line in lines)
+        for line in lines:
+            if line.startswith('Synchronization core status:'):
+                return line.partition(':')[2].strip(), quota_received
+        return 'unknown status', False
+
+    def core_status(self, peer):
+        return self.client_status(peer)[0]
+
     def ready(self, peer):
-        result = self.docker('exec', self.prefix + '-' + peer, 'yadisk', 'status', check=False)
-        return result.returncode == 0
+        # Exit zero also occurs while offline. Indexing need not finish before
+        # testing our files, but the client must have received the account quota.
+        state, quota_received = self.client_status(peer)
+        return quota_received and state in ('idle', 'busy', 'index')
 
     def matches(self, peer, filename, expected):
         result = self.exec(peer, 'if [ -f "$1" ]; then cat -- "$1"; fi', self.folder + '/' + filename)
@@ -145,7 +184,9 @@ class LiveSync:
         for peer, user in (('a', '1000:1000'), ('b', unknown)):
             self.prepare(peer, user)
             self.start(peer, user)
-        self.wait('Waiting for both authenticated clients', lambda: self.ready('a') and self.ready('b'))
+        self.wait(
+            'Waiting for both clients to connect and receive account quota', lambda: self.ready('a') and self.ready('b')
+        )
         first = ('upload-' + uuid.uuid4().hex + '\n').encode()
         self.exec('a', 'mkdir -p -- "$1"; cat > "$1/from-a.txt"', self.folder, data=first)
         self.wait('Checking upload from A and download to B', lambda: self.matches('b', 'from-a.txt', first))
@@ -192,30 +233,37 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--image', default='yandex-disk:latest')
     parser.add_argument(
-        '--auth-file', help='Existing passwd file (fallback: YADISK_AUTH_FILE in environment or root .env)'
+        '--auth-dir', help='Directory containing passwd and iid (fallback: YADISK_AUTH_DIR in environment or root .env)'
     )
     parser.add_argument(
         '--timeout', type=int, default=300, help='Timeout in seconds per wait or Docker operation (default: 300)'
     )
     args = parser.parse_args()
-    if args.auth_file is None:
-        args.auth_file = os.environ.get('YADISK_AUTH_FILE')
-    if args.auth_file is None:
+    if args.auth_dir is None:
+        args.auth_dir = os.environ.get('YADISK_AUTH_DIR')
+    if args.auth_dir is None:
         try:
-            args.auth_file = auth_file_from_env(Path(__file__).resolve().parents[1] / '.env')
+            args.auth_dir = auth_dir_from_env(Path(__file__).resolve().parents[1] / '.env')
         except (OSError, ValueError):
-            parser.error('Cannot read YADISK_AUTH_FILE from .env; check file access and quotes')
-    if not args.auth_file or args.timeout < 35:
-        parser.error('Provide --auth-file or YADISK_AUTH_FILE and a timeout of at least 35 seconds')
+            parser.error('Cannot read YADISK_AUTH_DIR from .env; check file access and quotes')
+    if not args.auth_dir or args.timeout < 35:
+        parser.error('Provide --auth-dir or YADISK_AUTH_DIR and a timeout of at least 35 seconds')
     if os.environ.get('CI'):
         parser.error('This test is for explicit local use, not CI')
     try:
-        auth = Path(args.auth_file).expanduser().read_bytes()
+        auth_dir = Path(args.auth_dir).expanduser()
+        auth = (auth_dir / 'passwd').read_bytes()
     except OSError:
-        parser.error('Cannot read authorization file')
+        parser.error('Cannot read passwd in the authorization directory')
     if not auth:
         parser.error('Authorization file is empty')
-    test = LiveSync(args.image, auth, args.timeout)
+    try:
+        iid = (auth_dir / 'iid').read_bytes()
+    except OSError:
+        parser.error('Cannot read iid in the authorization directory; use passwd and iid from the same configuration')
+    if not iid:
+        parser.error('The iid file in the authorization directory is empty')
+    test = LiveSync(args.image, auth, args.timeout, iid)
     result = 0
     try:
         test.run()
