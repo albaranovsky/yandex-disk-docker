@@ -76,6 +76,8 @@ Synchronization runs with `--no-daemon`, which ignores `config.cfg`. The wrapper
 Set `EXCLUDE=tmp,cache`, `PROXY=https,proxy.example.com,3128`, or pass CLI arguments via
 `yadisk start --read-only`. `EXCLUDE` applies only to `yadisk start`; `PROXY` is passed to all client commands.
 Empty variables add no option; the client's default proxy mode is `auto`. Other commands use `config.cfg` when present.
+`EXCLUDE` was verified for selective downloading of an existing cloud directory. A test with client 0.1.6.1081 showed
+that a newly created local directory could still be uploaded despite the exclusion; it is not an upload barrier.
 For standalone synchronization, pass exclusions explicitly with `yadisk sync --exclude-dirs=tmp,cache`.
 File arguments use paths inside the container; host paths are not translated.
 `yadisk token FILE` writes to the selected file, but startup checks and uses `$CONFIG_DIR/passwd`
@@ -84,7 +86,8 @@ File arguments use paths inside the container; host paths are not translated.
 Override `CONFIG_DIR` (default `/data/config`) and `DATA_DIR` (default `/data/disk`) with absolute container paths if needed.
 Mount writable storage at those paths. Empty or unset values use the defaults. Entrypoint creates the selected directories;
 the wrapper uses them for setup, token creation, synchronization, and management commands. Built-in home-directory symlinks
-retain the default paths, so use `yadisk` commands with custom storage paths.
+retain the default paths. With a custom `CONFIG_DIR`, also mount the same configuration storage at `/data/config`
+so the native client can read its `iid` through HOME. Use `yadisk` commands with custom storage paths.
 See the [official command reference](https://yandex.ru/support/yandex-360/customers/disk/desktop/linux/ru/cli-commands.html).
 
 Read-only rootfs is enabled with `--read-only`, writable storage, and `--tmpfs /tmp --tmpfs /run`. The container also supports

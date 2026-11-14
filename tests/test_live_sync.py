@@ -101,6 +101,101 @@ class LiveSyncTest(unittest.TestCase):
                 self.assertEqual(archive.extractfile(name).read(), expected)
                 self.assertEqual(archive.getmember(name).mode, 0o600)
 
+    def test_repreparing_observer_replaces_only_its_owned_volume(self):
+        with patch.object(self.test, 'docker') as docker:
+            self.test.prepare('b', '23456:23456')
+            self.test.prepare('b', '23456:23456')
+        name = self.test.prefix + '-b'
+        removals = [call.args for call in docker.call_args_list if call.args[:2] == ('volume', 'rm')]
+        self.assertEqual(removals, [('volume', 'rm', name)])
+        self.assertEqual(self.test.volumes, [name])
+
+    def test_host_edit_scenarios_preserve_then_replace_inode_at_same_size(self):
+        observed = []
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / self.test.prefix / 'from-host.txt'
+
+            def received(peer, filename, expected):
+                self.assertEqual((peer, filename), ('b', path.name))
+                self.assertEqual(path.read_bytes(), expected)
+                observed.append((path.stat().st_ino, path.stat().st_size))
+                return True
+
+            def remote_write(peer, script, folder, data):
+                self.assertEqual(peer, 'b')
+                path.write_bytes(data)
+
+            with patch('live_sync.tempfile.mkdtemp', return_value=directory), patch.object(
+                self.test, 'prepare'
+            ), patch.object(self.test, 'start'), patch.object(self.test, 'ready', return_value=True), patch.object(
+                self.test, 'matches', side_effect=received
+            ), patch.object(self.test, 'settled', return_value=True), patch.object(
+                self.test, 'exec', side_effect=remote_write
+            ):
+                self.test.check_host_edits()
+        self.assertEqual(len(observed), 3)
+        self.assertEqual(observed[0][0], observed[1][0])
+        self.assertNotEqual(observed[1][0], observed[2][0])
+        self.assertEqual({size for _, size in observed}, {33})
+
+    def test_conflict_copies_are_rejected(self):
+        result = subprocess.CompletedProcess(
+            [],
+            0,
+            stdout=b'from-a.txt\nfrom-b.txt\nfrom-host.txt\ncustom-paths.txt\ncustom-reply.txt\nfrom-host (2).txt\n',
+        )
+        with patch.object(self.test, 'exec', return_value=result), self.assertRaisesRegex(
+            RuntimeError, 'possible synchronization conflict'
+        ):
+            self.test.check_no_conflicts('host')
+
+    def test_exclude_failure_is_checked_after_control_download_and_idle(self):
+        result = subprocess.CompletedProcess([], 0, stdout=b'')
+        recorded = (self.test.prefix + '/from-a.txt\n' + self.test.excluded_name + '/skip.txt\n').encode()
+        status = subprocess.CompletedProcess([], 0, stdout=recorded)
+        with patch.object(self.test, 'docker', return_value=status), patch.object(self.test, 'prepare'), patch.object(
+            self.test, 'start'
+        ), patch.object(self.test, 'ready', return_value=True), patch.object(
+            self.test, 'matches', return_value=True
+        ) as matches, patch.object(self.test, 'settled', return_value=True) as settled, patch.object(
+            self.test, 'exec', return_value=result
+        ), patch.object(self.test, 'stop') as stop, self.assertRaisesRegex(RuntimeError, 'EXCLUDE failed'):
+            self.test.check_exclusion()
+        matches.assert_called_once()
+        self.assertEqual([call.args for call in settled.call_args_list], [('b',), ('b',), ('a',)])
+        stop.assert_called_once_with('b')
+
+    def test_idle_and_successful_sync_without_file_record_do_not_confirm_upload(self):
+        status = subprocess.CompletedProcess([], 0, stdout=b'Synchronization core status: idle\n')
+        with patch.object(self.test, 'docker', return_value=status), patch(
+            'live_sync.time.monotonic', side_effect=(0, 1, 1, 1, 36)
+        ), patch('live_sync.time.sleep'), self.assertRaisesRegex(RuntimeError, 'Timed out'):
+            self.test.sync_and_wait('custom', self.test.prefix + '/custom-paths.txt')
+
+    def test_exclusion_checks_file_contents_not_an_empty_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory) / self.test.excluded_name
+            folder.mkdir()
+
+            def local_exec(peer, script, *args):
+                return subprocess.run(['bash', '-c', script, 'test', *args], check=False, capture_output=True)
+
+            with patch.object(self.test, 'storage_paths', return_value=('/unused', directory)), patch.object(
+                self.test, 'exec', side_effect=local_exec
+            ):
+                self.assertTrue(self.test.excluded_file_absent('b'))
+                (folder / 'skip.txt').write_bytes(b'must not sync')
+                self.assertFalse(self.test.excluded_file_absent('b'))
+
+    def test_host_storage_is_preserved_if_container_cleanup_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.test.host_storage = Path(directory) / 'host-data'
+            self.test.host_storage.mkdir()
+            self.test.containers = [self.test.prefix + '-host']
+            with patch.object(self.test, 'docker', side_effect=RuntimeError('failed')), patch('sys.stderr'):
+                self.assertFalse(self.test.cleanup())
+            self.assertTrue(self.test.host_storage.is_dir())
+
 
 class AuthDirTest(unittest.TestCase):
     def test_env_file_paths_and_literal_shell_expressions(self):

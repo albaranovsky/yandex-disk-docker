@@ -166,9 +166,14 @@ the wrapper supplies `DATA_DIR` and `$CONFIG_DIR/passwd` explicitly.
 Empty or unset `CONFIG_DIR` and `DATA_DIR` use their defaults. Use absolute paths inside the container and mount storage
 there with permissions for the selected user. Entrypoint creates these directories; `yadisk setup` explicitly supplies
 the configuration, token, and disk paths even on first use. The image's home-directory symlinks still point to the default
-`/data/config` and `/data/disk`; use `yadisk` commands when overriding storage paths.
+`/data/config` and `/data/disk`. When overriding `CONFIG_DIR`, also mount the same configuration storage at `/data/config`:
+the native client still needs its `iid` through the fixed HOME configuration path. Passing `--auth` or `--config` alone
+does not relocate that metadata. Use `yadisk` commands when overriding storage paths.
 
 Empty `EXCLUDE` and `PROXY` add no CLI option. The client's default proxy mode is `auto`.
+`EXCLUDE` was verified for selective downloading of an existing cloud directory. In a separate test with client
+0.1.6.1081, a newly created local directory was uploaded despite being listed in `EXCLUDE`. Do not treat this option
+as an upload barrier for local-only files.
 
 For example, in Compose:
 
@@ -251,12 +256,29 @@ Relative paths from `.env` are resolved from the repository root; `~` is support
 interpolation are not evaluated. Store the path in `.env`, not the authorization file's contents.
 
 This test writes to the cloud account. Use a dedicated account: both clients may download its other contents.
-It copies only `passwd` and `iid` into two temporary Docker volumes and starts clients as `1000:1000` and
+It copies only `passwd` and `iid` into temporary Docker volumes and starts clients as `1000:1000` and
 `23456:23456` (verified absent from the image's user/group databases). It checks file contents in both directions,
 graceful shutdown, and synchronization after recreating a container with its original volume. No REST API token is needed.
-Only a uniquely named `yadisk-live-...` cloud folder is created and deleted. On success, deletion is confirmed through
-the other client; on failure or interruption, the folder may remain and its name is reported for manual cleanup.
-Test containers and volumes are removed on exit. The source authorization file is not modified or printed.
+The first client uses a read-only root filesystem with writable storage and tmpfs at `/tmp` and `/run`.
+For `EXCLUDE`, an unfiltered client first uploads a control file and a separate top-level cloud directory, then stops.
+The filtered client must download the control file and finish indexing without downloading the excluded file.
+An unfiltered observer later confirms that the excluded file really exists in the cloud.
+A further client tests read-only rootfs with separate configuration/data volumes mounted at custom paths containing
+spaces; its configuration volume is also mounted at `/data/config` for native client metadata. It uploads and downloads
+a control file. Clients with different storage layouts run sequentially because they share one saved identity.
+Before stopping a producer, the test waits for the new paths to appear in synchronization history and for the client
+to become idle. A fresh observer then verifies the exact contents; a successful `sync` exit code alone is insufficient.
+It also modifies an existing file in both directions through Docker volumes. A host client then uses a temporary host
+directory bind-mounted at `/data/disk`, running as the host UID/GID. The test creates a file on the host, edits it in place
+without changing its size, atomically replaces it, and checks each version through the other client. A remote edit must
+also appear in the host file. This exercises synchronization of host edits on Docker Desktop as well as container writes.
+Before switching the writer, the test waits for both clients to become idle. Unexpected files in the test folder,
+including conflict copies, fail the check even when the expected contents reached the other client.
+Only two uniquely named cloud directories, `yadisk-live-...` and `excluded-yadisk-live-...`, are created and deleted.
+On success, deletion is confirmed through the other client; on failure or interruption, they may remain and their names
+are reported for manual cleanup.
+Test containers, volumes, and temporary host storage are removed on exit. If Docker resource cleanup fails, host storage
+is retained and its path is reported. The source authorization files are not modified or printed.
 Root is used only to prepare new volumes; both synchronization clients run unprivileged.
 This test is excluded from `make test` and CI; interactive token acquisition and `setup` still need a manual check.
 Each wait and Docker operation has a timeout; to override the default 300 seconds, run
