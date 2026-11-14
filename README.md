@@ -69,6 +69,17 @@ volumes:
   - ./disk:/data/disk
 ```
 
+## macOS
+
+With Docker Desktop, synchronization through a bind mount (a host folder such as `./data:/data`)
+has a known limitation: if you create a folder on the Mac after the client starts, its initial files may
+upload while later edits remain unsynchronized. This was observed with the current client version.
+
+Create folders before starting synchronization, or run `docker compose restart yandex-disk` after creating
+them. Existing pending edits were uploaded after restarting in our checks. A Docker-managed volume is
+an alternative if you do not need direct access to synchronized files from the Mac; it avoids the host
+file-sharing layer. For `docker run`, restart with `docker restart yandex-disk`.
+
 ## Common commands
 
 ```bash

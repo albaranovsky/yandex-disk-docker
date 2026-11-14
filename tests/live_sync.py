@@ -203,27 +203,21 @@ class LiveSync:
 
     def check_host_edits(self):
         folder = self.host_storage / self.prefix
-        folder.mkdir(exist_ok=True)
         path = folder / 'from-host.txt'
         initial = (uuid.uuid4().hex + '\n').encode()
         path.write_bytes(initial)
         self.wait('Checking file created on host reaches B', lambda: self.matches('b', path.name, initial))
         # Keep the inode and size, then emulate an editor's atomic save.
-        # Separate writes by more than a second: subsecond client mtime handling
-        # is outside this mount integration check.
-        time.sleep(1.1)
         changed = (uuid.uuid4().hex + '\n').encode()
         with path.open('r+b') as file:
             file.write(changed)
         self.wait('Checking same-size host edit reaches B', lambda: self.matches('b', path.name, changed))
-        time.sleep(1.1)
         replacement = (uuid.uuid4().hex + '\n').encode()
         temporary = folder / 'replacement.tmp'
         temporary.write_bytes(replacement)
         temporary.replace(path)
         self.wait('Checking atomic host replacement reaches B', lambda: self.matches('b', path.name, replacement))
         self.wait('Waiting before switching writer', self.settled)
-        time.sleep(1.1)
         downloaded = (uuid.uuid4().hex + '\n').encode()
         self.exec('b', 'cat > "$1/from-host.txt"', self.folder, data=downloaded)
         self.wait(
@@ -246,6 +240,9 @@ class LiveSync:
         producer_user = '1000:1000'
         if scenario == 'host':
             self.host_storage = Path(tempfile.mkdtemp(prefix=self.prefix + '-'))
+            # The native client may miss watches for new host-created folders on macOS.
+            # This scenario checks file edits in a folder present at startup.
+            (self.host_storage / self.prefix).mkdir()
             producer_user = f'{os.getuid()}:{os.getgid()}'
         print('Cloud folder: ' + self.prefix, flush=True)
         for peer, user in (('a', producer_user), ('b', '23456:23456')):

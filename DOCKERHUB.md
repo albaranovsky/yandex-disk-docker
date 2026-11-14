@@ -41,6 +41,17 @@ For Compose, see the [quick start](https://github.com/albaranovsky/yandex-disk-d
 You can mount these directories separately. When reusing authorization, preserve **both `passwd` and `iid`
 from the same configuration**. A raw OAuth token cannot replace the client's `passwd` file.
 
+## macOS
+
+With Docker Desktop and a bind mount (a host folder such as `./data:/data`), folders created on the Mac
+after the client starts may upload their initial files but fail to synchronize later edits. This was
+observed with the current client version.
+
+Create folders before starting synchronization, or run `docker restart yandex-disk` after creating them
+(`docker compose restart yandex-disk` for Compose). Existing pending edits were uploaded after restarting
+in our checks. A Docker-managed volume avoids the host file-sharing layer if direct access to files
+from the Mac is unnecessary.
+
 ## Commands
 
 ```bash
