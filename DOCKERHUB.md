@@ -65,6 +65,10 @@ docker exec yandex-disk yadisk help
 File arguments use container paths. For the interactive authentication wizard, run `yadisk setup` instead of `yadisk token`;
 choose `/data/disk` and decline system autostart.
 
+The container healthcheck uses `yadisk status` to check the Yandex.Disk daemon.
+An `unhealthy` status means the daemon is not running or its status could not be retrieved.
+A `healthy` status does not guarantee cloud connectivity or completed synchronization.
+
 ## Options
 
 **Foreground synchronization ignores `config.cfg`.** Set environment variables with `docker run -e`:

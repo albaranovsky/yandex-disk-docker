@@ -95,6 +95,10 @@ docker compose down
 Use container paths for file arguments. To update the image, run `docker compose pull` followed by
 `docker compose up -d`; keep the storage directories to preserve authorization and files.
 
+The container healthcheck uses `yadisk status` to check the Yandex.Disk daemon.
+An `unhealthy` status means the daemon is not running or its status could not be retrieved.
+A `healthy` status does not guarantee cloud connectivity or completed synchronization.
+
 ## Configuration
 
 **Synchronization runs in foreground mode and ignores `config.cfg`.** Set options through environment variables
