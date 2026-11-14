@@ -34,11 +34,6 @@ services:
     stop_grace_period: 30s
     volumes:
       - ./data:/data
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: "3"
 ```
 
 Authenticate, open the link shown in the terminal, and follow the instructions:

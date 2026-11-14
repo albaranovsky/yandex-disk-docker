@@ -11,12 +11,6 @@ services:
     restart: unless-stopped
     stop_grace_period: 30s # Time for graceful shutdown, sync state flush, and lock release
 
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
     # environment:
     #   - EXCLUDE=temp,cache # Comma-separated list of folders to exclude
     #   - PROXY=https,proxy.example.com,3128 # protocol,host,port[,login,password]
