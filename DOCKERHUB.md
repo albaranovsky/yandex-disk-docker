@@ -81,7 +81,6 @@ A `healthy` status does not guarantee cloud connectivity or completed synchroniz
 | `DATA_DIR` | `/data/disk` | Synchronization directory inside the container |
 
 Other commands use `config.cfg` when present. For a separate `yadisk sync`, pass `--exclude-dirs=tmp,cache` explicitly.
-**EXCLUDE is not an upload barrier:** client 0.1.6.1081 uploaded a new local directory despite its exclusion.
 For custom paths, mount writable storage at the selected locations. A custom `CONFIG_DIR` also requires the same
 configuration storage mounted at `/data/config` for `iid`. Empty path variables use the defaults; use `yadisk` commands.
 

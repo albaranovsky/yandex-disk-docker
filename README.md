@@ -121,8 +121,7 @@ command: ["yadisk", "start", "--read-only"]
 ```
 
 The client flag `--read-only` downloads files without changing cloud files.
-**EXCLUDE does not guarantee that local files stay off the cloud:** client 0.1.6.1081 uploaded a new local directory
-listed in EXCLUDE. For a separate `yadisk sync`, pass `--exclude-dirs=tmp,cache` explicitly.
+For a separate `yadisk sync`, pass `--exclude-dirs=tmp,cache` explicitly.
 
 For custom storage paths, use absolute container paths and mount writable storage there. With a custom `CONFIG_DIR`,
 also mount the same configuration storage at `/data/config` so the client can read its `iid`. Empty path variables
