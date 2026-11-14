@@ -1,17 +1,11 @@
-# Yandex.Disk CLI client in Docker
+# Yandex.Disk CLI in Docker
 
-[![CI & Build](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/albaranovsky/yandex-disk-docker/actions/workflows/ci.yml)
-[![Docker Image Version](https://img.shields.io/github/v/release/albaranovsky/yandex-disk-docker?logo=github&label=version)](https://github.com/albaranovsky/yandex-disk-docker/releases)
-[![Attestation](https://img.shields.io/badge/Attestation-Verified-success?logo=github)](https://github.com/albaranovsky/yandex-disk-docker/attestations)
-[![Yandex.Disk CLI](https://img.shields.io/badge/yandex--disk-0.1.6.1081-blue?logo=yandex)](https://repo.yandex.ru/yandex-disk/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+Official **Yandex.Disk CLI v0.1.6.1081** with persistent storage and a non-root user.
+Default UID/GID: **1000:1000**. Platform: **linux/amd64**; other architectures require emulation.
 
-Official **Yandex.Disk CLI v0.1.6.1081** in a Debian Slim container. Runs as UID/GID **1000:1000** by default,
-uses `tini` for signal handling, and verifies the upstream package with SHA256.
+## Quick start
 
-## Prepare storage and authenticate
-
-Create storage as the host user who should own synchronized files:
+Create storage as the host user who should own synchronized files, then authenticate:
 
 ```bash
 mkdir -p data/config data/disk
@@ -23,11 +17,7 @@ docker run -it --rm --platform linux/amd64 \
   yadisk/yandex-disk:latest yadisk token
 ```
 
-Open the authorization link and follow the terminal instructions. The token is saved to `data/config/passwd`.
-When moving existing authorization, preserve both `passwd` and `iid` from the same configuration directory.
-Keep this directory private. The container does not change ownership or permissions of host files.
-
-## Start synchronization
+Open the link shown in the terminal and follow the instructions. Start synchronization:
 
 ```bash
 docker run -d --platform linux/amd64 \
@@ -37,32 +27,21 @@ docker run -d --platform linux/amd64 \
   yadisk/yandex-disk:latest
 ```
 
-Use the same UID/GID for authentication and synchronization. Without a nonempty token, startup exits with an error;
-authenticate before starting a service with a restart policy.
+Use the same UID/GID for authentication and synchronization. The selected user must have read/write access to storage;
+the container does not repair ownership or permissions. Missing credentials cause startup to fail and restart attempts.
+For Compose, see the [quick start](https://github.com/albaranovsky/yandex-disk-docker#quick-start-with-compose).
 
-For Compose, set `user:` to the storage owner's numeric UID/GID:
+## Storage
 
-```yaml
-services:
-  yandex-disk:
-    image: yadisk/yandex-disk:latest
-    platform: linux/amd64
-    user: "1000:1000" # Replace with the host storage owner's UID:GID
-    container_name: yandex-disk
-    restart: unless-stopped
-    stop_grace_period: 30s
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: "3"
-    volumes:
-      - ./data:/data
-```
+| Container path | Contents |
+| --- | --- |
+| `/data/config` | Authorization and settings; keep private |
+| `/data/disk` | Synchronized files |
 
-Two separate mounts to `/data/config` and `/data/disk` are also supported. Prepare host directories before starting.
+You can mount these directories separately. When reusing authorization, preserve **both `passwd` and `iid`
+from the same configuration**. A raw OAuth token cannot replace the client's `passwd` file.
 
-## Commands and options
+## Commands
 
 ```bash
 docker exec yandex-disk yadisk status --last
@@ -72,41 +51,37 @@ docker exec yandex-disk yadisk unpublish "/data/disk/Photos/vacation.zip"
 docker exec yandex-disk yadisk help
 ```
 
-Synchronization runs with `--no-daemon`, which ignores `config.cfg`. The wrapper supplies storage paths explicitly.
-Set `EXCLUDE=tmp,cache`, `PROXY=https,proxy.example.com,3128`, or pass CLI arguments via
-`yadisk start --read-only`. `EXCLUDE` applies only to `yadisk start`; `PROXY` is passed to all client commands.
-Empty variables add no option; the client's default proxy mode is `auto`. Other commands use `config.cfg` when present.
-`EXCLUDE` was verified for selective downloading of an existing cloud directory. A test with client 0.1.6.1081 showed
-that a newly created local directory could still be uploaded despite the exclusion; it is not an upload barrier.
-For standalone synchronization, pass exclusions explicitly with `yadisk sync --exclude-dirs=tmp,cache`.
-File arguments use paths inside the container; host paths are not translated.
-`yadisk token FILE` writes to the selected file, but startup checks and uses `$CONFIG_DIR/passwd`
-(`/data/config/passwd` by default).
+File arguments use container paths. For the interactive authentication wizard, run `yadisk setup` instead of `yadisk token`;
+choose `/data/disk` and decline system autostart.
 
-Override `CONFIG_DIR` (default `/data/config`) and `DATA_DIR` (default `/data/disk`) with absolute container paths if needed.
-Mount writable storage at those paths. Empty or unset values use the defaults. Entrypoint creates the selected directories;
-the wrapper uses them for setup, token creation, synchronization, and management commands. Built-in home-directory symlinks
-retain the default paths. With a custom `CONFIG_DIR`, also mount the same configuration storage at `/data/config`
-so the native client can read its `iid` through HOME. Use `yadisk` commands with custom storage paths.
-See the [official command reference](https://yandex.ru/support/yandex-360/customers/disk/desktop/linux/ru/cli-commands.html).
+## Options
 
-Read-only rootfs is enabled with `--read-only`, writable storage, and `--tmpfs /tmp --tmpfs /run`. The container also supports
-`--security-opt=no-new-privileges:true`. The client flag `--read-only` controls cloud synchronization separately.
+**Foreground synchronization ignores `config.cfg`.** Set environment variables with `docker run -e`:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `EXCLUDE` | empty | Comma-separated directories, e.g. `tmp,cache`; only for `yadisk start` |
+| `PROXY` | `auto` when empty | `auto`, `no`, or `protocol,host,port[,login,password]`; all commands |
+| `CONFIG_DIR` | `/data/config` | Configuration directory inside the container |
+| `DATA_DIR` | `/data/disk` | Synchronization directory inside the container |
+
+Other commands use `config.cfg` when present. For a separate `yadisk sync`, pass `--exclude-dirs=tmp,cache` explicitly.
+**EXCLUDE is not an upload barrier:** client 0.1.6.1081 uploaded a new local directory despite its exclusion.
+For custom paths, mount writable storage at the selected locations. A custom `CONFIG_DIR` also requires the same
+configuration storage mounted at `/data/config` for `iid`. Empty path variables use the defaults; use `yadisk` commands.
+
+Add `yadisk start --read-only` after the image name to download without changing cloud files.
+For a read-only container filesystem, use Docker `--read-only --tmpfs /tmp --tmpfs /run` and keep storage writable;
+this still permits changes to synchronized files and cloud data.
 
 ## Migration from 2.x
 
-Remove `PUID`/`PGID`; use Docker `--user UID:GID` or Compose `user: "UID:GID"` instead. Prepare storage ownership
-on the host. Automatic user mapping, ownership repair, interactive setup on startup, and waiting for a token have been
-removed. Nonempty legacy variables produce an error. Existing tokens and synchronized data can be reused.
+Remove `PUID`/`PGID` and set `--user UID:GID` or Compose `user: "UID:GID"`. Prepare storage permissions on the host.
+Keep existing data and configuration, including matching `passwd` and `iid`; authenticate explicitly if needed.
+Startup no longer changes ownership, launches an interactive setup, or waits for a token.
 
-## Supply chain verification
-
-Published images include SBOM and provenance attestations:
-
-```bash
-docker scout attestation list yadisk/yandex-disk:latest
-gh attestation verify oci://ghcr.io/albaranovsky/yandex-disk-docker:latest --owner albaranovsky
-```
-
-[Source and full documentation](https://github.com/albaranovsky/yandex-disk-docker) ·
-[Report an issue](https://github.com/albaranovsky/yandex-disk-docker/issues)
+[Full documentation](https://github.com/albaranovsky/yandex-disk-docker) ·
+[Releases](https://github.com/albaranovsky/yandex-disk-docker/releases) ·
+[Image attestations](https://github.com/albaranovsky/yandex-disk-docker/attestations) ·
+[Report an issue](https://github.com/albaranovsky/yandex-disk-docker/issues) ·
+[MIT license](https://github.com/albaranovsky/yandex-disk-docker/blob/main/LICENSE)
