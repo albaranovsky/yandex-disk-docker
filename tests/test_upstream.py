@@ -119,17 +119,26 @@ class UpstreamTest(unittest.TestCase):
 
     def test_invalid_dockerfile_assignments_are_rejected_before_any_changes(self):
         original = (ROOT / 'Dockerfile').read_text()
-        assignment = 'ARG YADISK_VERSION=' + self.tracked['version']
-        for contents in (original.replace(assignment, 'ARG YADISK_VERSION'), original + '\n' + assignment + '\n'):
-            with self.subTest(contents=contents):
-                (self.base / 'Dockerfile').write_text(contents)
-                self.assert_rejected(self.index(), 'Expected exactly one ARG YADISK_VERSION=')
+        for name, value in (('YADISK_VERSION', self.tracked['version']), ('YADISK_SHA256', self.tracked['sha256'])):
+            assignment = f'ARG {name}={value}'
+            for contents in (original.replace(assignment, f'ARG {name}'), original + '\n' + assignment + '\n'):
+                with self.subTest(name=name, contents=contents):
+                    (self.base / 'Dockerfile').write_text(contents)
+                    self.assert_rejected(self.index(), f'Expected exactly one ARG {name}=')
 
     def test_missing_tracking_file_can_be_initialized(self):
+        documents = {name: (self.base / name).read_bytes() for name in ('README.md', 'DOCKERHUB.md')}
         (self.base / '.upstream.json').unlink()
         result = self.run_update(self.index())
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads((self.base / '.upstream.json').read_text())['version'], '0.1.6.9999')
+        self.assertEqual(
+            json.loads((self.base / '.upstream.json').read_text()),
+            {'package': 'yandex-disk', 'version': '0.1.6.9999', 'sha256': 'a' * 64},
+        )
+        dockerfile = (self.base / 'Dockerfile').read_text()
+        self.assertIn('ARG YADISK_VERSION=0.1.6.9999\n', dockerfile)
+        self.assertIn('ARG YADISK_SHA256=' + 'a' * 64 + '\n', dockerfile)
+        self.assertEqual({name: (self.base / name).read_bytes() for name in documents}, documents)
         self.assertIn('old_version=\n', self.output.read_text())
 
 

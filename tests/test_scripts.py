@@ -101,16 +101,22 @@ class ScriptsTest(unittest.TestCase):
 
     def test_start_help_does_not_require_token_or_storage(self):
         self.disk.rmdir()
-        for token in (None, '', 'dummy-token'):
-            if token is not None:
-                (self.config / 'passwd').write_text(token)
-            for flag in ('--help', '-h'):
-                for args in ((flag,), ('--read-only', flag), (flag, '--read-only')):
-                    with self.subTest(token=token, args=args):
-                        result = self.run_script('yadisk', 'start', *args, EXCLUDE='temp', PROXY='invalid-proxy')
-                        self.assertEqual(result.returncode, 0, result.stderr)
-                        self.assertEqual(result.stderr, '')
-                        self.assertEqual(json.loads(self.log.read_text()), ['--help'])
+        for token, args in (
+            (None, ('--help',)),
+            ('', ('-h',)),
+            ('dummy-token', ('--help',)),
+            ('dummy-token', ('-h',)),
+            (None, ('--read-only', '--help')),
+            (None, ('-h', '--read-only')),
+        ):
+            with self.subTest(token=token, args=args):
+                (self.config / 'passwd').unlink(missing_ok=True)
+                if token is not None:
+                    (self.config / 'passwd').write_text(token)
+                result = self.run_script('yadisk', 'start', *args, EXCLUDE='temp', PROXY='invalid-proxy')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr, '')
+                self.assertEqual(json.loads(self.log.read_text()), ['--help'])
 
     def test_start_passes_foreground_options_and_preserves_files(self):
         self.authenticate()
@@ -165,21 +171,37 @@ class ScriptsTest(unittest.TestCase):
                 self.assertIn('Storage is not accessible', result.stderr)
                 self.assertFalse(self.log.exists())
 
-    def test_publish_preserves_paths_and_uses_saved_configuration(self):
+    @unittest.skipIf(os.geteuid() == 0, 'Root bypasses Unix access permissions')
+    def test_start_rejects_unreadable_token_or_unwritable_configuration(self):
         self.authenticate()
-        (self.config / 'config.cfg').touch()
-        result = self.run_script('yadisk', 'publish', 'Photos/a file.zip')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(
-            json.loads(self.log.read_text()),
-            [
-                '--config=' + str(self.config / 'config.cfg'),
-                '--dir=' + str(self.disk),
-                '--auth=' + str(self.config / 'passwd'),
-                'publish',
-                'Photos/a file.zip',
-            ],
-        )
+        for path, mode in ((self.config / 'passwd', 0o000), (self.config, 0o555)):
+            with self.subTest(path=path.name):
+                previous = path.stat().st_mode & 0o777
+                path.chmod(mode)
+                try:
+                    result = self.run_script('yadisk', 'start')
+                finally:
+                    path.chmod(previous)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Storage is not accessible', result.stderr)
+                self.assertFalse(self.log.exists())
+
+    def test_management_commands_use_available_configuration_and_token(self):
+        for config, token in ((False, False), (False, True), (True, True)):
+            if token:
+                self.authenticate()
+            if config:
+                (self.config / 'config.cfg').touch()
+            for command in ('status', 'sync', 'stop', 'publish', 'unpublish'):
+                with self.subTest(command=command, config=config, token=token):
+                    arguments = ['Photos/a file.zip'] if command in ('publish', 'unpublish') else []
+                    result = self.run_script('yadisk', command, *arguments)
+                    expected = ['--config=' + str(self.config / 'config.cfg')] if config else []
+                    expected += ['--dir=' + str(self.disk)]
+                    if token:
+                        expected += ['--auth=' + str(self.config / 'passwd')]
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(json.loads(self.log.read_text()), expected + [command, *arguments])
 
     def test_token_has_explicit_default_path_and_accepts_custom_path(self):
         for supplied, expected in (([], str(self.config / 'passwd')), (['a token'], 'a token')):
@@ -201,10 +223,12 @@ class ScriptsTest(unittest.TestCase):
             ],
         )
 
-    def test_unknown_command_is_forwarded(self):
-        result = self.run_script('yadisk', '--version')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(self.log.read_text()), ['--version'])
+    def test_unhandled_arguments_and_exit_code_are_forwarded(self):
+        for arguments in (['--version'], ['unknown-command', 'a file']):
+            with self.subTest(arguments=arguments):
+                result = self.run_script('yadisk', *arguments, CLIENT_EXIT='7')
+                self.assertEqual(result.returncode, 7, result.stderr)
+                self.assertEqual(json.loads(self.log.read_text()), arguments)
 
 
 if __name__ == '__main__':

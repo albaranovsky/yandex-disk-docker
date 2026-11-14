@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 
 IMAGE ?= yandex-disk:latest
+LIVE_SCENARIO ?= smoke
 
 .PHONY: help build pull setup token up down restart status sync publish unpublish test test-unit test-integration test-live lint logs shell
 
@@ -57,8 +58,8 @@ test-unit: ## Test shell script behavior without Docker (requires Python 3.8+)
 test-integration: ## Run Docker integration tests (IMAGE=...)
 	./tests/test.sh $(IMAGE)
 
-test-live: ## Test real cloud sync locally (YADISK_AUTH_DIR=..., dedicated account)
-	python3 tests/live_sync.py --image '$(IMAGE)'
+test-live: ## Test the image with an account (LIVE_SCENARIO=smoke or host)
+	python3 tests/live_sync.py --image '$(IMAGE)' --scenario '$(LIVE_SCENARIO)'
 
 lint: ## Lint Dockerfile, shell scripts, and GitHub Actions workflows
 	docker run --rm --network none -v "$$(pwd):/repo:ro" -w /repo rhysd/actionlint:latest

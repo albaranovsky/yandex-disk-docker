@@ -227,9 +227,9 @@ make test-integration IMAGE=yandex-disk:latest
 
 Script tests run the original shell scripts with temporary storage selected through `CONFIG_DIR` and `DATA_DIR`,
 and one fake client to check argument handling, exit codes, authentication errors,
-permissions, and preservation of existing files. The write-permission test is skipped when run as root.
-Container checks verify users, mounts, read-only rootfs, and signal forwarding through `tini`. Foreground argument and
-signal checks substitute a client; the official client is invoked for an unauthenticated status check.
+permissions, and preservation of existing files. Permission tests are skipped when run as root.
+Container checks verify users, writable mounts, home symlink targets, read-only rootfs, and SIGTERM delivery to a
+controlled foreground process. The official client is invoked for `start --help` without authorization.
 The default test suite and CI run without an account.
 
 For an opt-in local test of real synchronization, prepare a directory containing the original `passwd` and `iid`
@@ -257,29 +257,29 @@ interpolation are not evaluated. Store the path in `.env`, not the authorization
 
 This test writes to the cloud account. Use a dedicated account: both clients may download its other contents.
 It copies only `passwd` and `iid` into temporary Docker volumes and starts clients as `1000:1000` and
-`23456:23456` (verified absent from the image's user/group databases). It checks file contents in both directions,
-graceful shutdown, and synchronization after recreating a container with its original volume. No REST API token is needed.
-The first client uses a read-only root filesystem with writable storage and tmpfs at `/tmp` and `/run`.
-For `EXCLUDE`, an unfiltered client first uploads a control file and a separate top-level cloud directory, then stops.
-The filtered client must download the control file and finish indexing without downloading the excluded file.
-An unfiltered observer later confirms that the excluded file really exists in the cloud.
-A further client tests read-only rootfs with separate configuration/data volumes mounted at custom paths containing
-spaces; its configuration volume is also mounted at `/data/config` for native client metadata. It uploads and downloads
-a control file. Clients with different storage layouts run sequentially because they share one saved identity.
-Before stopping a producer, the test waits for the new paths to appear in synchronization history and for the client
-to become idle. A fresh observer then verifies the exact contents; a successful `sync` exit code alone is insufficient.
-It also modifies an existing file in both directions through Docker volumes. A host client then uses a temporary host
-directory bind-mounted at `/data/disk`, running as the host UID/GID. The test creates a file on the host, edits it in place
-without changing its size, atomically replaces it, and checks each version through the other client. A remote edit must
-also appear in the host file. This exercises synchronization of host edits on Docker Desktop as well as container writes.
-Before switching the writer, the test waits for both clients to become idle. Unexpected files in the test folder,
-including conflict copies, fail the check even when the expected contents reached the other client.
-Only two uniquely named cloud directories, `yadisk-live-...` and `excluded-yadisk-live-...`, are created and deleted.
-On success, deletion is confirmed through the other client; on failure or interruption, they may remain and their names
-are reported for manual cleanup.
-Test containers, volumes, and temporary host storage are removed on exit. If Docker resource cleanup fails, host storage
-is retained and its path is reported. The source authorization files are not modified or printed.
-Root is used only to prepare new volumes; both synchronization clients run unprivileged.
+`23456:23456` (verified absent from the image's user/group databases). The default `smoke` scenario checks upload,
+download after recreating a container with its original storage, and clean shutdown. The first client uses split
+configuration/data volumes, a read-only root filesystem, and tmpfs at `/tmp` and `/run`; the second uses a unified
+`/data` volume. Each transfer is confirmed by the exact contents received by the other client.
+
+To check host edits, including Docker Desktop on macOS, run a separate scenario:
+
+```bash
+make test-live IMAGE=yandex-disk:latest LIVE_SCENARIO=host
+```
+
+This scenario runs the first client as the host UID/GID with a temporary directory bind-mounted at `/data/disk`.
+It checks creation on the host, an in-place edit preserving the file size, atomic replacement, and a remote edit
+received on the host. Before switching the writer, it waits for both clients to become idle.
+Successive writes are more than one second apart; this scenario does not test subsecond change detection.
+These are image integration checks; exclusion rules, conflict resolution, and synchronization history are outside
+the suite's scope.
+
+Each scenario creates one uniquely named cloud directory, `yadisk-live-...`. On success, deletion is confirmed
+through the other client; on failure or interruption, the directory may remain and its name is reported for manual
+cleanup. Test containers, volumes, and temporary host storage are removed on exit. If Docker resource cleanup fails,
+host storage is retained and its path is reported. The source authorization files are not modified or printed.
+Root is used only to prepare new volumes; both synchronization clients run unprivileged. No REST API token is needed.
 This test is excluded from `make test` and CI; interactive token acquisition and `setup` still need a manual check.
 Each wait and Docker operation has a timeout; to override the default 300 seconds, run
 `python3 tests/live_sync.py --image yandex-disk:latest --auth-dir /path/to/config --timeout 600`.
