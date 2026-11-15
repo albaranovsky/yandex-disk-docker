@@ -1,8 +1,9 @@
 .DEFAULT_GOAL := help
 
 IMAGE ?= yandex-disk:latest
+LIVE_SCENARIO ?= smoke
 
-.PHONY: help build pull setup token up down restart status sync publish unpublish test lint logs shell
+.PHONY: help build pull setup token up down restart status sync publish unpublish test test-unit test-integration test-live lint logs shell
 
 help: ## Show help message
 	@echo "Usage: make [target]"
@@ -37,19 +38,32 @@ status: ## Show sync status (use ARGS="--last" for recent files)
 sync: ## Trigger manual synchronization
 	docker compose exec yandex-disk yadisk sync
 
+# Preserve FILE literally, including dollar signs, and pass it through the environment.
+override FILE := $(value FILE)
+export FILE
+
 publish: ## Publish file or folder (make publish FILE=path)
-	@test -n "$(FILE)" || { echo "Usage: make publish FILE=<path>"; exit 1; }
-	docker compose exec yandex-disk yadisk publish "$(FILE)"
+	@test -n "$${FILE}" || { echo "Usage: make publish FILE=<path>"; exit 1; }
+	docker compose exec yandex-disk yadisk publish "$${FILE}"
 
 unpublish: ## Revoke public link (make unpublish FILE=path)
-	@test -n "$(FILE)" || { echo "Usage: make unpublish FILE=<path>"; exit 1; }
-	docker compose exec yandex-disk yadisk unpublish "$(FILE)"
+	@test -n "$${FILE}" || { echo "Usage: make unpublish FILE=<path>"; exit 1; }
+	docker compose exec yandex-disk yadisk unpublish "$${FILE}"
 
-test: ## Run automated integration test suite (IMAGE=...)
+test: test-unit test-integration ## Run script and container tests (IMAGE=...)
+
+test-unit: ## Test shell script behavior without Docker (requires Python 3.8+)
+	python3 -m unittest discover -s tests -p 'test_*.py'
+
+test-integration: ## Run Docker integration tests (IMAGE=...)
 	./tests/test.sh $(IMAGE)
 
-lint: ## Lint Dockerfile and shell scripts with Hadolint and ShellCheck
-	docker run --rm -i hadolint/hadolint:latest < Dockerfile
+test-live: ## Test the image with an account (LIVE_SCENARIO=smoke or host)
+	python3 tests/live_sync.py --image '$(IMAGE)' --scenario '$(LIVE_SCENARIO)'
+
+lint: ## Lint Dockerfile, shell scripts, and GitHub Actions workflows
+	docker run --rm --network none -v "$$(pwd):/repo:ro" -w /repo rhysd/actionlint:latest
+	docker run --rm -i hadolint/hadolint:latest hadolint --failure-threshold warning - < Dockerfile
 	docker run --rm -v "$$(pwd):/mnt" -w /mnt koalaman/shellcheck:stable entrypoint.sh yadisk tests/test.sh
 
 logs: ## Follow daemon logs
