@@ -3,7 +3,7 @@ ARG YADISK_VERSION=0.1.6.1081
 ARG YADISK_SHA256=7970b3da0ad644f06f7b3ae4f0c69cc28d4730f95a0a02b7af2b58eb6000f9c5
 
 # --- Stage 1: Download package ---
-FROM curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777 AS downloader
+FROM curlimages/curl:8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93 AS downloader
 ARG YADISK_VERSION
 ARG YADISK_SHA256
 ARG YADISK_DEB_URL=https://repo.yandex.ru/yandex-disk/deb/pool/main/y/yandex-disk/yandex-disk_${YADISK_VERSION}_amd64.deb
